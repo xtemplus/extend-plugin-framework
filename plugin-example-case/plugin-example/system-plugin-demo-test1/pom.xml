@@ -1,0 +1,65 @@
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.plugin.framework</groupId>
+    <artifactId>system-system-plugin-demo-test1</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>system-plugin-demo-test1</name>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+
+            <!-- Spring Web MVC -->
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-webmvc</artifactId>
+                <version>5.3.10</version> <!-- 使用适合你的Spring版本 -->
+            </dependency>
+
+
+        <dependency>
+            <groupId>com.plugin.framework</groupId>
+            <artifactId>system-plugin-sdk</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.plugin.framework</groupId>
+            <artifactId>plugin-spring-spi</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.plugin.framework</groupId>
+                <artifactId>plugin-security-maven</artifactId>
+                <version>0.0.1-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>sign-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- 建议通过命令行 -Dplugin.security.secret=xxx 传入 -->
+                    <secret>${plugin.security.secret}</secret>
+                    <!-- 不配置则使用插件默认值，这里显式给出便于理解 -->
+                    <nonceLength>8</nonceLength>
+                    <tokenLength>24</tokenLength>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
