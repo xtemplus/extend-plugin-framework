@@ -2,6 +2,8 @@ package com.plugin.framework.core.runtime;
 
 import com.plugin.framework.core.extension.ExtensionPointImplementation;
 import com.plugin.framework.core.extension.ExtensionPointRegistry;
+import com.plugin.framework.core.registry.ExtensionRegistry;
+import com.plugin.framework.core.registry.PluginScopedExtensionRegistry;
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.security.PluginSecurityUtil;
 import com.plugin.framework.core.spi.HttpMethod;
@@ -99,6 +101,9 @@ public final class PluginManager {
 
     /** 安全校验启用时使用的注册表管理器（可选）。 */
     private PluginRegistryManager pluginRegistryManager;
+
+    /** 扩展点注册表（从 context 懒设置），用于插件卸载时移除该插件注册的扩展点。 */
+    private ExtensionRegistry extensionRegistry;
 
     /** 安全校验使用的密钥。 */
     private String securitySecret;
@@ -213,6 +218,9 @@ public final class PluginManager {
         if (extensionPointRegistry != null) {
             extensionPointRegistry.removeImplementationsByPluginId(pluginId);
         }
+        if (extensionRegistry != null) {
+            extensionRegistry.unregisterByPluginId(pluginId);
+        }
         if (jarPath != null) {
             try {
                 Files.deleteIfExists(jarPath);
@@ -253,6 +261,9 @@ public final class PluginManager {
         closeClassLoader(pluginId);
         if (extensionPointRegistry != null) {
             extensionPointRegistry.removeImplementationsByPluginId(pluginId);
+        }
+        if (extensionRegistry != null) {
+            extensionRegistry.unregisterByPluginId(pluginId);
         }
         if (jarPath != null) {
             Path pluginsDir = jarPath.getParent();
@@ -478,6 +489,9 @@ public final class PluginManager {
             Path jar, PluginContext context, boolean securityEnabled) {
         List<Plugin> loaded = new ArrayList<>();
         List<String> replacedIds = new ArrayList<>();
+        if (this.extensionRegistry == null) {
+            this.extensionRegistry = context.getExtensionRegistry();
+        }
         PluginMetadata metadata = loadMetadata(jar);
         if (metadata == null || !metadata.hasValidId()) {
             logger.log(
@@ -558,6 +572,9 @@ public final class PluginManager {
                     if (extensionPointRegistry != null) {
                         extensionPointRegistry.removeImplementationsByPluginId(pluginId);
                     }
+                    if (extensionRegistry != null) {
+                        extensionRegistry.unregisterByPluginId(pluginId);
+                    }
                     replacedIds.add(pluginId);
                     if (securityEnabled && oldJar != null) {
                         try {
@@ -571,7 +588,11 @@ public final class PluginManager {
                     }
                 }
                 logger.log(Level.INFO, "loading plugin: {0}", plugin.getName());
-                plugin.onEnable(context);
+                PluginContext scopedContext =
+                        context.withExtensionRegistry(
+                                new PluginScopedExtensionRegistry(
+                                        pluginId, context.getExtensionRegistry()));
+                plugin.onEnable(scopedContext);
                 plugins.add(plugin);
                 pluginsById.put(pluginId, plugin);
                 pluginClassLoaders.put(pluginId, classLoader);

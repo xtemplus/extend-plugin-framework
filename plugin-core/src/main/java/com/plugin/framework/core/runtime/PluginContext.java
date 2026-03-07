@@ -136,6 +136,22 @@ public final class PluginContext {
         return extensionRegistry;
     }
 
+    /**
+     * 返回一个使用指定扩展点注册表的新上下文（用于加载插件时注入按 pluginId 绑定的注册表）。
+     *
+     * @param extensionRegistry 扩展点注册表
+     * @return 新上下文实例，其余字段与当前一致
+     */
+    public PluginContext withExtensionRegistry(ExtensionRegistry extensionRegistry) {
+        return new PluginContext(
+                hostName,
+                logger,
+                locale,
+                Objects.requireNonNull(extensionRegistry, "extensionRegistry"),
+                serviceRegistry,
+                extensionPointRegistry);
+    }
+
     /** @return 服务注册表 */
     public ServiceRegistry getServiceRegistry() {
         return serviceRegistry;

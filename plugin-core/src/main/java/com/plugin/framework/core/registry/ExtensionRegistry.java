@@ -18,6 +18,21 @@ public interface ExtensionRegistry {
     void register(ExtensionPoint<?, ?> extension);
 
     /**
+     * 按插件 ID 注册扩展点实现（插件卸载时会自动移除）。
+     *
+     * @param pluginId 插件 ID，不能为空
+     * @param extension 扩展点实现
+     */
+    void register(String pluginId, ExtensionPoint<?, ?> extension);
+
+    /**
+     * 移除指定插件注册的所有扩展点（插件卸载时由框架调用）。
+     *
+     * @param pluginId 插件 ID
+     */
+    void unregisterByPluginId(String pluginId);
+
+    /**
      * 根据扩展点 ID 和上下文获取可用扩展实现。
      *
      * @param pointId 扩展点 ID

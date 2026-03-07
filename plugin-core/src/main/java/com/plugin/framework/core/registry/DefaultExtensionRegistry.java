@@ -11,11 +11,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 默认扩展点注册表实现：线程安全，按扩展注册顺序返回实现列表；查找时过滤 {@link ExtensionPoint#supports} 不支持的上下文。
+ * 支持按 pluginId 注册，插件卸载时通过 {@link #unregisterByPluginId} 移除。
  */
 public final class DefaultExtensionRegistry implements ExtensionRegistry {
 
     /** pointId -> 该扩展点下的实现列表（注册顺序）。 */
     private final Map<String, List<ExtensionPoint<?, ?>>> extensions = new ConcurrentHashMap<>();
+
+    /** pluginId -> 该插件注册的扩展列表，用于卸载时批量移除。 */
+    private final Map<String, List<ExtensionPoint<?, ?>>> byPluginId = new ConcurrentHashMap<>();
 
     @Override
     public void register(ExtensionPoint<?, ?> extension) {
@@ -24,6 +28,37 @@ public final class DefaultExtensionRegistry implements ExtensionRegistry {
                 extensions.computeIfAbsent(
                         extension.getPointId(), key -> new CopyOnWriteArrayList<>());
         list.add(extension);
+    }
+
+    @Override
+    public void register(String pluginId, ExtensionPoint<?, ?> extension) {
+        Objects.requireNonNull(pluginId, "pluginId");
+        Objects.requireNonNull(extension, "extension");
+        List<ExtensionPoint<?, ?>> list =
+                extensions.computeIfAbsent(
+                        extension.getPointId(), key -> new CopyOnWriteArrayList<>());
+        list.add(extension);
+        byPluginId
+                .computeIfAbsent(pluginId, k -> new CopyOnWriteArrayList<>())
+                .add(extension);
+    }
+
+    @Override
+    public void unregisterByPluginId(String pluginId) {
+        Objects.requireNonNull(pluginId, "pluginId");
+        List<ExtensionPoint<?, ?>> list = byPluginId.remove(pluginId);
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        for (ExtensionPoint<?, ?> ext : list) {
+            List<ExtensionPoint<?, ?>> pointList = extensions.get(ext.getPointId());
+            if (pointList != null) {
+                pointList.remove(ext);
+                if (pointList.isEmpty()) {
+                    extensions.remove(ext.getPointId());
+                }
+            }
+        }
     }
 
     @Override
