@@ -29,24 +29,40 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 简化版插件管理器：负责从指定目录加载插件 jar，并暴露端点查询能力。
+ * 插件管理器：从指定目录或单个 jar 加载/卸载/停用插件，维护端点与元数据，支持可选安全校验。
+ *
+ * <p>主要能力：
+ *
+ * <ul>
+ *   <li>启动时扫描目录下 *.jar 并加载（可配合安全校验）
+ *   <li>运行期单 jar 加载（热插拔）、卸载（删除 jar）、停用（移至 disabled 并释放句柄）
+ *   <li>同 ID 覆盖时先停用旧插件再加载新插件
+ *   <li>通过 {@link #configureSecurity} 启用后，仅加载通过 {@link PluginSecurityUtil} 校验的 jar
+ * </ul>
  */
 public final class PluginManager {
 
     private final Logger logger = Logger.getLogger(PluginManager.class.getName());
 
+    /** 已加载的插件列表（顺序与加载顺序一致）。 */
     private final List<Plugin> plugins = new ArrayList<>();
 
+    /** 所有插件端点扁平列表，供路由查找。 */
     private final List<PluginEndpoint> endpoints = new ArrayList<>();
 
+    /** 按插件 ID 索引的插件实例。 */
     private final Map<String, Plugin> pluginsById = new HashMap<>();
 
+    /** 按插件 ID 索引的该插件端点列表，用于卸载/停用时批量移除。 */
     private final Map<String, List<PluginEndpoint>> endpointsByPluginId = new HashMap<>();
 
+    /** 当前激活的插件 jar 路径（pluginId -> Path）。 */
     private final Map<String, Path> pluginJarPaths = new HashMap<>();
 
+    /** 插件元数据（pluginId -> PluginMetadata）。 */
     private final Map<String, PluginMetadata> metadataById = new HashMap<>();
 
+    /** 插件 ClassLoader，用于卸载时关闭。 */
     private final Map<String, ClassLoader> pluginClassLoaders = new HashMap<>();
 
     /** 停用后保留的 jar 路径，用于同 ID 再次上传时替换并释放句柄。 */
@@ -79,14 +95,24 @@ public final class PluginManager {
         return sanitizePluginIdForFileName(pluginId) + ".jar";
     }
 
+    /** 安全校验启用时使用的注册表管理器（可选）。 */
     private PluginRegistryManager pluginRegistryManager;
 
+    /** 安全校验使用的密钥。 */
     private String securitySecret;
 
+    /** 安全 token 中 nonce 长度。 */
     private int securityNonceLength = 8;
 
+    /** 安全 token 总长度。 */
     private int securityTokenLength = 24;
 
+    /**
+     * 扫描目录下所有 *.jar 并加载插件；若已配置安全则仅加载通过校验的 jar。
+     *
+     * @param pluginsDir 插件目录
+     * @param context 插件上下文
+     */
     public void loadPlugins(Path pluginsDir, PluginContext context) {
         Objects.requireNonNull(pluginsDir, "pluginsDir");
         Objects.requireNonNull(context, "context");
@@ -107,6 +133,14 @@ public final class PluginManager {
         }
     }
 
+    /**
+     * 配置安全校验：启用后仅加载通过 {@link PluginSecurityUtil#verifyFileNameAndMetadata} 的 jar。
+     *
+     * @param registryManager 注册表管理器
+     * @param secret 密钥
+     * @param nonceLength nonce 长度
+     * @param tokenLength token 总长度
+     */
     public void configureSecurity(
             PluginRegistryManager registryManager,
             String secret,
@@ -130,6 +164,13 @@ public final class PluginManager {
         return Collections.unmodifiableMap(metadataById);
     }
 
+    /**
+     * 按路径与方法查找第一个匹配的端点。
+     *
+     * @param path 路径
+     * @param method HTTP 方法
+     * @return 匹配的端点，不存在则 empty
+     */
     public Optional<PluginEndpoint> findEndpoint(String path, HttpMethod method) {
         return endpoints.stream()
                 .filter(
@@ -303,6 +344,13 @@ public final class PluginManager {
         return loadPluginJar(jar, context, false);
     }
 
+    /**
+     * 使用安全校验加载单个 jar（文件名与元数据需通过 HMAC 校验）。
+     *
+     * @param jar 插件 jar 路径
+     * @param context 插件上下文
+     * @return 加载结果
+     */
     public synchronized PluginLoadResult loadPluginWithSecurity(
             Path jar, PluginContext context) {
         Objects.requireNonNull(jar, "jar");
@@ -314,6 +362,9 @@ public final class PluginManager {
         return loadPluginJar(jar, context, true);
     }
 
+    /**
+     * 从 jar 加载插件：解析元数据、校验安全（可选）、SPI 或约定式加载、注册端点与注册表。
+     */
     private PluginLoadResult loadPluginJar(
             Path jar, PluginContext context, boolean securityEnabled) {
         List<Plugin> loaded = new ArrayList<>();
@@ -457,7 +508,7 @@ public final class PluginManager {
     }
 
     /**
-     * 从 jar 路径读取插件元数据（用于上传前解析 plugin.id 等）。
+     * 从 jar 路径读取 META-INF/plugin.properties 并解析为元数据（用于上传前解析或加载前校验）。
      *
      * @param jar 插件 jar 路径
      * @return 元数据，无效或不存在则 null
@@ -466,6 +517,7 @@ public final class PluginManager {
         return loadMetadata(jar);
     }
 
+    /** 内部：从 jar 读取 plugin.properties 并构建 PluginMetadata。 */
     private PluginMetadata loadMetadata(Path jar) {
         try (JarFile jarFile = new JarFile(jar.toFile())) {
             JarEntry entry = jarFile.getJarEntry("META-INF/plugin.properties");

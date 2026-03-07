@@ -1,6 +1,5 @@
 package com.plugin.framework.spring;
 
-
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,16 +24,26 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
- * 帮助宿主应用在运行期为插件注册 Spring MVC Controller。
+ * 在运行期为插件的 Spring Controller 注册到宿主应用的 Spring MVC。
+ *
+ * <p>仅处理实现 {@link SpringPlugin} 的插件，根据 {@link SpringPlugin#getBasePackages()} 扫描
+ * 带 {@link org.springframework.web.bind.annotation.RestController} 的类，创建 Bean 并注册到
+ * {@link RequestMappingHandlerMapping}；卸载插件时可调用 {@link #unregister(String)} 移除映射。
  */
 public final class PluginSpringRegistrar {
 
     private final ConfigurableApplicationContext applicationContext;
-
     private final RequestMappingHandlerMapping handlerMapping;
 
+    /** 插件 ID -> 该插件注册的 Controller Bean 名称集合，用于卸载时批量取消映射。 */
     private final Map<String, Set<String>> pluginControllerBeans = new HashMap<>();
 
+    /**
+     * 创建注册器。
+     *
+     * @param applicationContext 宿主应用上下文
+     * @param handlerMapping Spring MVC 的 HandlerMapping
+     */
     public PluginSpringRegistrar(
             ConfigurableApplicationContext applicationContext,
             RequestMappingHandlerMapping handlerMapping) {
@@ -67,6 +76,7 @@ public final class PluginSpringRegistrar {
         }
     }
 
+    /** 约定式插件使用其 URLClassLoader，否则使用插件类的 ClassLoader。 */
     private static ClassLoader getPluginClassLoader(Object plugin) {
         if (plugin instanceof DefaultConventionPlugin) {
             return ((DefaultConventionPlugin) plugin).getPluginClassLoader();
@@ -74,6 +84,7 @@ public final class PluginSpringRegistrar {
         return plugin.getClass().getClassLoader();
     }
 
+    /** 在指定包下扫描 @RestController，创建 Bean 并注册 Handler 方法。 */
     private void registerControllersInPackage(
             String basePackage,
             ClassLoader pluginClassLoader,
@@ -93,8 +104,7 @@ public final class PluginSpringRegistrar {
                 continue;
             }
             try {
-                Class<?> controllerClass =
-                        ClassUtils.forName(className, pluginClassLoader);
+                Class<?> controllerClass = ClassUtils.forName(className, pluginClassLoader);
                 String beanName = buildBeanName(pluginId, controllerClass);
                 if (applicationContext.containsBean(beanName)) {
                     Object existingController = applicationContext.getBean(beanName);
@@ -110,11 +120,12 @@ public final class PluginSpringRegistrar {
                 beanNamesForPlugin.add(beanName);
                 registerHandlerMethods(beanName, controller);
             } catch (ClassNotFoundException ex) {
-                // ignore single controller failure
+                // 单个 Controller 加载失败则跳过
             }
         }
     }
 
+    /** Bean 名称格式：pluginId#Controller 全类名。 */
     private String buildBeanName(String pluginId, Class<?> controllerClass) {
         return pluginId + "#" + controllerClass.getName();
     }
@@ -137,6 +148,7 @@ public final class PluginSpringRegistrar {
         }
     }
 
+    /** 通过反射调用 RequestMappingHandlerMapping#getMappingForMethod 并注册映射。 */
     private void registerHandlerMethods(String beanName, Object controller) {
         Class<?> handlerType = controller.getClass();
         Method mappingMethod;
@@ -169,6 +181,7 @@ public final class PluginSpringRegistrar {
         }
     }
 
+    /** 从 handlerMapping 中找出该 bean 对应的所有 RequestMappingInfo 并取消注册。 */
     private void unregisterHandlerMethods(String beanName) {
         Map<RequestMappingInfo, HandlerMethod> handlerMethods =
                 handlerMapping.getHandlerMethods();

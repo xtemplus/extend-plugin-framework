@@ -1,6 +1,5 @@
 package com.plugin.framework.spring;
 
-
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
@@ -21,13 +20,13 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 /**
  * 插件框架的 Spring Boot 自动配置。
  *
- * <p>宿主应用只需引入依赖即可获得：
+ * <p>宿主应用引入本 starter 后即可获得：
  *
  * <ul>
- *   <li>{@link PluginContext}
- *   <li>{@link PluginManager}
- *   <li>{@link PluginSpringRegistrar}
- *   <li>应用启动后自动扫描 {@code plugins/} 目录并加载插件的逻辑
+ *   <li>{@link PluginContext}：插件运行时上下文
+ *   <li>{@link PluginManager}：插件加载/卸载/停用
+ *   <li>{@link PluginSpringRegistrar}：将插件 Controller 注册到 Spring MVC
+ *   <li>应用启动后自动扫描 {@code plugins/} 目录并加载插件的 CommandLineRunner（可通过配置关闭）
  * </ul>
  */
 @AutoConfiguration
@@ -37,9 +36,9 @@ public class PluginFrameworkAutoConfiguration {
     private static final Logger log = Logger.getLogger("com.plugin.framework.spring");
 
     /**
-     * 默认的插件上下文。
+     * 默认的插件上下文 Bean；使用 {@link PluginFrameworkProperties#getHostId()} 与默认 Locale。
      *
-     * @param properties 属性配置
+     * @param properties 配置属性
      * @return 插件上下文
      */
     @Bean
@@ -50,7 +49,7 @@ public class PluginFrameworkAutoConfiguration {
     }
 
     /**
-     * 默认的插件管理器。
+     * 默认的插件管理器 Bean。
      *
      * @return 插件管理器
      */
@@ -61,11 +60,11 @@ public class PluginFrameworkAutoConfiguration {
     }
 
     /**
-     * 默认的 Spring MVC 注册器。
+     * 默认的 Spring MVC 注册器 Bean，用于将插件的 Controller 注册到 {@link RequestMappingHandlerMapping}。
      *
      * @param applicationContext 宿主应用上下文
-     * @param handlerMapping RequestMappingHandlerMapping
-     * @return registrar 实例
+     * @param handlerMapping Spring MVC 的 HandlerMapping
+     * @return 注册器实例
      */
     @Bean
     @ConditionalOnMissingBean
@@ -76,13 +75,14 @@ public class PluginFrameworkAutoConfiguration {
     }
 
     /**
-     * 应用启动后自动扫描插件目录并加载插件。
+     * 应用启动后自动扫描插件目录、加载插件并注册到 Spring MVC；当 {@code plugin.framework.auto-load-on-startup}
+     * 为 true（默认）时注册。
      *
      * @param pluginManager 插件管理器
      * @param pluginContext 插件上下文
-     * @param pluginSpringRegistrar Spring MVC 注册器
-     * @param properties 属性配置
-     * @return 启动回调
+     * @param pluginSpringRegistrar MVC 注册器
+     * @param properties 配置属性
+     * @return 启动时执行的 CommandLineRunner
      */
     @Bean
     @ConditionalOnProperty(

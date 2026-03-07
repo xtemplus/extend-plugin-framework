@@ -9,15 +9,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * 插件 Jar 安全命名与校验工具。
- *
- * <p>基于 HMAC-SHA256 + 随机 nonce 生成安全 token，并在文件名中携带：
- *
- * <pre>
- *   {pluginName}-{version}-{secureToken}.jar
- * </pre>
- *
- * secureToken = nonceBase62 + signatureBase62 的截断字符串。
+ * 插件 Jar 安全命名与校验工具：基于 HMAC-SHA256 + 随机 nonce 生成/校验安全 token，文件名格式为
+ * {@code {pluginName}-{version}-{secureToken}.jar}。
  */
 public final class PluginSecurityUtil {
 

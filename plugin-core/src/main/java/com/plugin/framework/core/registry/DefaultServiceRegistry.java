@@ -9,12 +9,11 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 默认服务扩展注册表实现。
- *
- * <p>线程安全，按注册顺序返回服务实例。
+ * 默认服务扩展注册表实现：线程安全，支持按 ID+契约类型查找与按契约类型批量查找。
  */
 public final class DefaultServiceRegistry implements ServiceRegistry {
 
+    /** 内部：服务 ID、契约类型与实例。 */
     private static final class ServiceHolder {
 
         private final String id;
@@ -29,7 +28,6 @@ public final class DefaultServiceRegistry implements ServiceRegistry {
     }
 
     private final Map<String, ServiceHolder> servicesById = new ConcurrentHashMap<>();
-
     private final Map<Class<?>, List<ServiceHolder>> servicesByType = new ConcurrentHashMap<>();
 
     @Override

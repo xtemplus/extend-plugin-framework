@@ -16,6 +16,8 @@ import java.util.logging.Logger;
 
 /**
  * 从插件 jar（URLClassLoader）中列出类名的工具，用于约定式插件的包扫描。
+ *
+ * <p>仅处理 jar 协议 URL，仅收集 .class 且路径中不包含 '-' 的条目（排除内部类等）。
  */
 public final class PluginClassLoaderScan {
 

@@ -1,54 +1,37 @@
 package com.plugin.framework.spring;
 
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 插件框架的可配置属性。
+ * 插件框架的配置属性，前缀为 {@code plugin.framework}。
  *
- * <p>宿主应用可通过 {@code plugin.framework.*} 前缀进行覆盖。
+ * <p>宿主可通过 application.yml 或环境变量覆盖；安全密钥优先从环境变量 {@link #getSecurityEnvKey()} 读取。
  */
 @ConfigurationProperties(prefix = "plugin.framework")
 public class PluginFrameworkProperties {
 
-    /**
-     * 宿主应用标识，用于区分不同宿主环境。
-     */
+    /** 宿主应用标识，用于区分不同宿主环境。 */
     private String hostId = "example-host";
 
-    /**
-     * 插件目录（相对于 {@code user.dir}）。
-     */
+    /** 插件目录，相对于 user.dir。 */
     private String pluginsDir = "plugins";
 
-    /**
-     * 是否在应用启动时自动扫描并加载插件。
-     */
+    /** 是否在应用启动时自动扫描并加载插件。 */
     private boolean autoLoadOnStartup = true;
 
-    /**
-     * 从环境变量中读取安全密钥时使用的 key。
-     */
+    /** 从环境变量读取安全密钥时使用的 key。 */
     private String securityEnvKey = "PLUGIN_SECURITY_SECRET";
 
-    /**
-     * 当环境变量未配置时使用的默认安全密钥。
-     */
+    /** 环境变量未配置时使用的默认安全密钥。 */
     private String defaultSecuritySecret = "change-me-default-secret";
 
-    /**
-     * 安全 token 最小长度。
-     */
+    /** 安全 token 最小长度（nonce 等）。 */
     private int securityTokenMinLength = 8;
 
-    /**
-     * 安全 token 最大长度。
-     */
+    /** 安全 token 最大长度。 */
     private int securityTokenMaxLength = 24;
 
-    /**
-     * 是否在插件加载完成后打印启动 Banner 提示。
-     */
+    /** 是否在插件加载完成后打印启动 Banner。 */
     private boolean bannerEnabled = true;
 
     public String getHostId() {

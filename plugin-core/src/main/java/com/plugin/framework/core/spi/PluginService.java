@@ -6,7 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 标记插件侧提供的服务扩展实现。
+ * 标记插件侧提供的服务扩展实现，配合 {@link com.plugin.framework.core.support.AnnotatedServiceRegistrar} 使用。
+ *
+ * <p>用于约定式插件中扫描并注册到 {@link com.plugin.framework.core.registry.ServiceRegistry}。
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
@@ -20,7 +22,7 @@ public @interface PluginService {
     String id();
 
     /**
-     * 契约接口类型，缺省时可由工具类推断。
+     * 契约接口类型；为 Void.class 时由工具类从实现类的第一个接口推断。
      *
      * @return 接口类型
      */

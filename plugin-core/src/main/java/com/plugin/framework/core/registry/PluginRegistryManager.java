@@ -56,15 +56,30 @@ public final class PluginRegistryManager {
         loadFromFile();
     }
 
+    /** @return 所有注册表条目（只读） */
+    /** @return 所有注册表条目（只读） */
     public List<PluginRegistryEntry> getAllEntries() {
         return Collections.unmodifiableList(new ArrayList<>(entriesByPluginId.values()));
     }
 
+    /**
+     * 按插件 ID 查找条目。
+     *
+     * @param pluginId 插件 ID
+     * @return 条目，不存在则 empty
+     */
     public Optional<PluginRegistryEntry> findByPluginId(String pluginId) {
         Objects.requireNonNull(pluginId, "pluginId");
         return Optional.ofNullable(entriesByPluginId.get(pluginId));
     }
 
+    /**
+     * 新增或更新一条激活状态条目（加载插件成功后调用）。
+     *
+     * @param metadata 插件元数据
+     * @param jarFile 插件 jar 路径
+     * @param remarks 备注，可为 null
+     */
     public synchronized void upsertActiveEntry(
             PluginMetadata metadata, Path jarFile, String remarks) {
         Objects.requireNonNull(metadata, "metadata");
@@ -98,6 +113,11 @@ public final class PluginRegistryManager {
         persistToFile();
     }
 
+    /**
+     * 移除指定插件的注册表条目。
+     *
+     * @param pluginId 插件 ID
+     */
     public synchronized void removeEntry(String pluginId) {
         Objects.requireNonNull(pluginId, "pluginId");
         entriesByPluginId.remove(pluginId);
@@ -109,8 +129,7 @@ public final class PluginRegistryManager {
             return;
         }
         try {
-            String content =
-                    Files.readString(registryFile, StandardCharsets.UTF_8);
+            String content = Files.readString(registryFile, StandardCharsets.UTF_8);
             if (content.isEmpty()) {
                 return;
             }
@@ -139,6 +158,7 @@ public final class PluginRegistryManager {
                         case "lastUpdateTime" -> timeStr = value;
                         case "remarks" -> remarks = value;
                         default -> {
+                            // 忽略未知字段
                         }
                     }
                 }

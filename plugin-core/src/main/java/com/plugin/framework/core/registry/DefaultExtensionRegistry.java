@@ -10,12 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * 默认扩展点注册表实现。
- *
- * <p>线程安全，按扩展注册顺序返回实现列表。
+ * 默认扩展点注册表实现：线程安全，按扩展注册顺序返回实现列表；查找时过滤 {@link ExtensionPoint#supports} 不支持的上下文。
  */
 public final class DefaultExtensionRegistry implements ExtensionRegistry {
 
+    /** pointId -> 该扩展点下的实现列表（注册顺序）。 */
     private final Map<String, List<ExtensionPoint<?, ?>>> extensions = new ConcurrentHashMap<>();
 
     @Override
@@ -43,6 +42,7 @@ public final class DefaultExtensionRegistry implements ExtensionRegistry {
         return Collections.unmodifiableList(result);
     }
 
+    /** 类型擦除下调用 extension.supports(context)。 */
     @SuppressWarnings("unchecked")
     private boolean supportsContext(ExtensionPoint<?, ?> extension, Object context) {
         ExtensionPoint<Object, ?> typed = (ExtensionPoint<Object, ?>) extension;

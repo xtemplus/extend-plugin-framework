@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 类型化服务扩展注册表。
+ * 类型化服务扩展注册表：按服务 ID 与契约接口类型注册与查找实现（如 UserExtendPlugin 等）。
  *
- * <p>用于管理基于接口的服务扩展，例如 UserExtendPlugin 等。
+ * <p>与 {@link ExtensionRegistry} 区别在于按接口类型 + ID 管理，适合“一个接口多实现”的服务扩展。
  */
 public interface ServiceRegistry {
 
