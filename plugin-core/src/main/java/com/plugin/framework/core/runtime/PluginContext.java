@@ -1,5 +1,6 @@
 package com.plugin.framework.core.runtime;
 
+import com.plugin.framework.core.extension.ExtensionPointRegistry;
 import com.plugin.framework.core.registry.DefaultExtensionRegistry;
 import com.plugin.framework.core.registry.DefaultServiceRegistry;
 import com.plugin.framework.core.registry.ExtensionRegistry;
@@ -30,6 +31,9 @@ public final class PluginContext {
 
     /** 类型化服务注册表，用于注册与查找基于接口的服务实现。 */
     private final ServiceRegistry serviceRegistry;
+
+    /** 扩展点契约注册表（方案 A），可选。 */
+    private final ExtensionPointRegistry extensionPointRegistry;
 
     /**
      * 使用默认扩展点注册表与服务注册表创建上下文。
@@ -64,7 +68,7 @@ public final class PluginContext {
     }
 
     /**
-     * 使用自定义扩展点注册表与服务注册表创建上下文。
+     * 使用自定义扩展点注册表与服务注册表创建上下文（无扩展点契约注册表）。
      *
      * @param hostName 宿主名称
      * @param logger 日志器
@@ -78,11 +82,38 @@ public final class PluginContext {
             Locale locale,
             ExtensionRegistry extensionRegistry,
             ServiceRegistry serviceRegistry) {
+        this(
+                hostName,
+                logger,
+                locale,
+                extensionRegistry,
+                serviceRegistry,
+                null);
+    }
+
+    /**
+     * 使用自定义扩展点注册表、服务注册表与扩展点契约注册表创建上下文。
+     *
+     * @param hostName 宿主名称
+     * @param logger 日志器
+     * @param locale 地域
+     * @param extensionRegistry 扩展点注册表
+     * @param serviceRegistry 服务注册表
+     * @param extensionPointRegistry 扩展点契约注册表，可为 null
+     */
+    public PluginContext(
+            String hostName,
+            Logger logger,
+            Locale locale,
+            ExtensionRegistry extensionRegistry,
+            ServiceRegistry serviceRegistry,
+            ExtensionPointRegistry extensionPointRegistry) {
         this.hostName = Objects.requireNonNull(hostName, "hostName");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.extensionRegistry = Objects.requireNonNull(extensionRegistry, "extensionRegistry");
         this.serviceRegistry = Objects.requireNonNull(serviceRegistry, "serviceRegistry");
+        this.extensionPointRegistry = extensionPointRegistry;
     }
 
     /** @return 宿主名称 */
@@ -108,5 +139,14 @@ public final class PluginContext {
     /** @return 服务注册表 */
     public ServiceRegistry getServiceRegistry() {
         return serviceRegistry;
+    }
+
+    /**
+     * 扩展点契约注册表（方案 A）；为 null 时不使用声明式扩展点注册。
+     *
+     * @return 扩展点契约注册表，可能为 null
+     */
+    public ExtensionPointRegistry getExtensionPointRegistry() {
+        return extensionPointRegistry;
     }
 }

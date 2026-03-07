@@ -1,5 +1,8 @@
 package com.plugin.framework.spring;
 
+import com.plugin.framework.core.extension.ExtensionPointRegistry;
+import com.plugin.framework.core.registry.DefaultExtensionRegistry;
+import com.plugin.framework.core.registry.DefaultServiceRegistry;
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
@@ -8,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.logging.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -37,15 +41,28 @@ public class PluginFrameworkAutoConfiguration {
 
     /**
      * 默认的插件上下文 Bean；使用 {@link PluginFrameworkProperties#getHostId()} 与默认 Locale。
+     * 若容器中存在 {@link ExtensionPointRegistry}，则使用其构建上下文（方案 A：声明式扩展点 + 契约）。
      *
      * @param properties 配置属性
+     * @param extensionPointRegistry 扩展点契约注册表，可选
      * @return 插件上下文
      */
     @Bean
     @ConditionalOnMissingBean
-    public PluginContext pluginContext(PluginFrameworkProperties properties) {
+    public PluginContext pluginContext(
+            PluginFrameworkProperties properties,
+            @Autowired(required = false) ExtensionPointRegistry extensionPointRegistry) {
         Logger logger = Logger.getLogger("PluginHost");
-        return new PluginContext(properties.getHostId(), logger, Locale.getDefault());
+        if (extensionPointRegistry == null) {
+            return new PluginContext(properties.getHostId(), logger, Locale.getDefault());
+        }
+        return new PluginContext(
+                properties.getHostId(),
+                logger,
+                Locale.getDefault(),
+                new DefaultExtensionRegistry(),
+                new DefaultServiceRegistry(),
+                extensionPointRegistry);
     }
 
     /**

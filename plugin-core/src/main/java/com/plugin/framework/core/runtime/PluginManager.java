@@ -1,5 +1,7 @@
 package com.plugin.framework.core.runtime;
 
+import com.plugin.framework.core.extension.ExtensionPointImplementation;
+import com.plugin.framework.core.extension.ExtensionPointRegistry;
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.security.PluginSecurityUtil;
 import com.plugin.framework.core.spi.HttpMethod;
@@ -107,6 +109,9 @@ public final class PluginManager {
     /** 安全 token 总长度。 */
     private int securityTokenLength = 24;
 
+    /** 扩展点契约注册表（从 context 懒设置），用于声明式扩展点注册与卸载时移除。 */
+    private ExtensionPointRegistry extensionPointRegistry;
+
     /**
      * 扫描目录下所有 *.jar 并加载插件；若已配置安全则仅加载通过校验的 jar。
      *
@@ -205,6 +210,9 @@ public final class PluginManager {
         }
         metadataById.remove(pluginId);
         closeClassLoader(pluginId);
+        if (extensionPointRegistry != null) {
+            extensionPointRegistry.removeImplementationsByPluginId(pluginId);
+        }
         if (jarPath != null) {
             try {
                 Files.deleteIfExists(jarPath);
@@ -243,6 +251,9 @@ public final class PluginManager {
         metadataById.remove(pluginId);
         pluginJarPaths.remove(pluginId);
         closeClassLoader(pluginId);
+        if (extensionPointRegistry != null) {
+            extensionPointRegistry.removeImplementationsByPluginId(pluginId);
+        }
         if (jarPath != null) {
             Path pluginsDir = jarPath.getParent();
             Path disabledDir = pluginsDir.resolve(DISABLED_SUBDIR);
@@ -446,6 +457,9 @@ public final class PluginManager {
                     metadataById.remove(pluginId);
                     Path oldJar = pluginJarPaths.remove(pluginId);
                     closeClassLoader(pluginId);
+                    if (extensionPointRegistry != null) {
+                        extensionPointRegistry.removeImplementationsByPluginId(pluginId);
+                    }
                     replacedIds.add(pluginId);
                     if (securityEnabled && oldJar != null) {
                         try {
@@ -476,6 +490,36 @@ public final class PluginManager {
                     pluginRegistryManager.upsertActiveEntry(metadata, jar, null);
                 }
                 loaded.add(plugin);
+
+                // 方案 A：若 context 提供 ExtensionPointRegistry，注册声明式扩展点实现（BUILTIN/HTTP）
+                ExtensionPointRegistry epRegistry = context.getExtensionPointRegistry();
+                if (epRegistry != null) {
+                    this.extensionPointRegistry = epRegistry;
+                    List<DeclaredExtensionPoint> declared = metadata.getDeclaredExtensionPoints();
+                    if (declared != null && !declared.isEmpty()) {
+                        for (DeclaredExtensionPoint dep : declared) {
+                            if (dep.hasBuiltinHandler()) {
+                                ExtensionPointImplementation impl =
+                                        ExtensionPointImplementation.builtin(
+                                                pluginId,
+                                                classLoader,
+                                                dep.getHandlerClass(),
+                                                dep.getHandlerMethod() != null
+                                                        ? dep.getHandlerMethod()
+                                                        : "handle",
+                                                0);
+                                epRegistry.registerImplementation(dep.getPointId(), impl);
+                            } else if (dep.isHttp()
+                                    && dep.getBaseUrl() != null
+                                    && !dep.getBaseUrl().isEmpty()) {
+                                ExtensionPointImplementation impl =
+                                        ExtensionPointImplementation.http(
+                                                pluginId, dep.getBaseUrl(), 0);
+                                epRegistry.registerImplementation(dep.getPointId(), impl);
+                            }
+                        }
+                    }
+                }
             }
         } catch (MalformedURLException e) {
             logger.log(Level.SEVERE, "invalid plugin jar url: " + jar, e);

@@ -4,11 +4,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.plugin.framework</groupId>
-    <artifactId>plugin-core</artifactId>
+    <artifactId>system-plugin-sms-channel</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>plugin-core</name>
+    <name>system-plugin-sms-channel</name>
+    <description>VIP 用户展示短信通道：通过扩展点 user.channel.available 注册，仅当 isVip=true 时返回短信通道</description>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -17,15 +18,10 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.everit.json</groupId>
-            <artifactId>org.everit.json.schema</artifactId>
-            <version>1.5.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
-            <version>20240303</version>
+            <groupId>com.plugin.framework</groupId>
+            <artifactId>plugin-core</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>
-
