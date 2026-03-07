@@ -1,14 +1,16 @@
-package com.plugin.framework.spring;
+package com.plugin.framework.spring.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plugin.framework.core.extension.ExtensionPointRegistry;
 import com.plugin.framework.core.registry.DefaultExtensionRegistry;
 import com.plugin.framework.core.registry.DefaultServiceRegistry;
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
+import com.plugin.framework.spring.manager.SpringPluginManager;
+import com.plugin.framework.spring.mvc.PluginSpringRegistrar;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,6 +94,32 @@ public class PluginFrameworkAutoConfiguration {
     }
 
     /**
+     * Spring 环境的插件管理器 Bean：封装上传并注册、卸载、停用及停用状态持久化。
+     *
+     * @param pluginManager 插件管理器
+     * @param pluginContext 插件上下文
+     * @param pluginSpringRegistrar Spring MVC 注册器
+     * @param properties 配置属性
+     * @param objectMapper 可选，用于停用状态 JSON 持久化
+     * @return Spring 环境的插件管理器
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public SpringPluginManager springPluginManager(
+            PluginManager pluginManager,
+            PluginContext pluginContext,
+            PluginSpringRegistrar pluginSpringRegistrar,
+            PluginFrameworkProperties properties,
+            @Autowired(required = false) ObjectMapper objectMapper) {
+        return new SpringPluginManager(
+                pluginManager,
+                pluginContext,
+                pluginSpringRegistrar,
+                properties,
+                objectMapper);
+    }
+
+    /**
      * 应用启动后自动扫描插件目录、加载插件并注册到 Spring MVC；当 {@code plugin.framework.auto-load-on-startup}
      * 为 true（默认）时注册。
      *
@@ -113,8 +141,7 @@ public class PluginFrameworkAutoConfiguration {
             PluginSpringRegistrar pluginSpringRegistrar,
             PluginFrameworkProperties properties) {
         return args -> {
-            Path userDir = Paths.get(System.getProperty("user.dir"));
-            Path pluginsDir = userDir.resolve(properties.getPluginsDir());
+            Path pluginsDir = properties.resolvePluginsDir();
             Files.createDirectories(pluginsDir);
             Path registryFile = pluginsDir.resolve("plugin-registry.json");
             PluginRegistryManager registryManager = new PluginRegistryManager(registryFile);
@@ -128,13 +155,14 @@ public class PluginFrameworkAutoConfiguration {
             pluginManager.getPlugins().forEach(pluginSpringRegistrar::register);
             int pluginCount = pluginManager.getPlugins().size();
             if (properties.isBannerEnabled()) {
-                printStartupBanner(properties.getHostId(), properties.getPluginsDir(), pluginCount);
+                printStartupBanner(
+                        properties.getHostId(), pluginsDir.toString(), pluginCount);
             }
             log.info(
                     "Plugin Framework started. hostId="
                             + properties.getHostId()
                             + ", pluginsDir="
-                            + properties.getPluginsDir()
+                            + pluginsDir
                             + ", loadedPlugins="
                             + pluginCount);
         };
@@ -158,4 +186,3 @@ public class PluginFrameworkAutoConfiguration {
         System.out.println();
     }
 }
-

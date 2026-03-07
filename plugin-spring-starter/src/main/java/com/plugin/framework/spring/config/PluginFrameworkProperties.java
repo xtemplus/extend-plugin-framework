@@ -1,5 +1,7 @@
-package com.plugin.framework.spring;
+package com.plugin.framework.spring.config;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -13,7 +15,7 @@ public class PluginFrameworkProperties {
     /** 宿主应用标识，用于区分不同宿主环境。 */
     private String hostId = "example-host";
 
-    /** 插件目录，相对于 user.dir。 */
+    /** 插件目录：相对路径时相对 user.dir，绝对路径时直接使用（Unix 以 / 开头，Windows 可含盘符如 C:）。 */
     private String pluginsDir = "plugins";
 
     /** 是否在应用启动时自动扫描并加载插件。 */
@@ -99,6 +101,19 @@ public class PluginFrameworkProperties {
     }
 
     /**
+     * 解析插件目录路径：若 {@link #getPluginsDir()} 为绝对路径则直接使用，否则相对 user.dir 解析。
+     *
+     * @return 插件目录的绝对路径
+     */
+    public Path resolvePluginsDir() {
+        Path path = Paths.get(pluginsDir);
+        if (path.isAbsolute()) {
+            return path;
+        }
+        return Paths.get(System.getProperty("user.dir")).resolve(pluginsDir);
+    }
+
+    /**
      * 从环境变量解析安全密钥，若未配置则返回默认值。
      *
      * @return 安全密钥
@@ -111,4 +126,3 @@ public class PluginFrameworkProperties {
         return value;
     }
 }
-

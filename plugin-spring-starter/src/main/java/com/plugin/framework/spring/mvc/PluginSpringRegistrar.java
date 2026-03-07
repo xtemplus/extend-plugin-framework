@@ -1,5 +1,8 @@
-package com.plugin.framework.spring;
+package com.plugin.framework.spring.mvc;
 
+import com.plugin.framework.core.spi.Plugin;
+import com.plugin.framework.spring.DefaultConventionPlugin;
+import com.plugin.framework.spring.SpringPlugin;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,8 +12,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-
-import com.plugin.framework.core.spi.Plugin;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -197,4 +198,3 @@ public final class PluginSpringRegistrar {
         }
     }
 }
-

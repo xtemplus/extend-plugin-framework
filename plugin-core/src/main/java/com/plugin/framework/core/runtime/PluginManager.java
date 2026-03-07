@@ -344,6 +344,7 @@ public final class PluginManager {
      *
      * @param jar 插件 jar 路径
      * @param context 插件上下文
+     * @return 加载结果
      */
     public synchronized PluginLoadResult loadPlugin(Path jar, PluginContext context) {
         Objects.requireNonNull(jar, "jar");
@@ -353,6 +354,103 @@ public final class PluginManager {
             return PluginLoadResult.empty();
         }
         return loadPluginJar(jar, context, false);
+    }
+
+    /**
+     * 上传 jar 并加载插件：将输入流写入插件目录、校验元数据、处理同 ID 覆盖或停用恢复，再调用
+     * {@link #loadPlugin(Path, PluginContext)}。不包含 Spring MVC 注册，由上层（如 plugin-spring-starter）
+     * 根据返回的 {@link PluginLoadResult} 调用注册器完成“上传并注册”。
+     *
+     * @param pluginsDir 插件目录（不存在时会创建）
+     * @param jarStream 插件 jar 输入流（由调用方关闭）
+     * @param originalFilename 原始文件名，用于校验 .jar 后缀
+     * @param context 插件上下文
+     * @return 成功时包含加载结果，失败时包含错误原因
+     */
+    public synchronized UploadAndLoadResult uploadAndLoad(
+            Path pluginsDir,
+            InputStream jarStream,
+            String originalFilename,
+            PluginContext context) {
+        Objects.requireNonNull(pluginsDir, "pluginsDir");
+        Objects.requireNonNull(jarStream, "jarStream");
+        Objects.requireNonNull(context, "context");
+        if (originalFilename == null || !originalFilename.endsWith(".jar")) {
+            return UploadAndLoadResult.failure(
+                    "插件文件名不合法，必须为 .jar 结尾且遵循安全命名规范");
+        }
+        try {
+            Files.createDirectories(pluginsDir);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "failed to create plugins dir: {0}", pluginsDir);
+            return UploadAndLoadResult.failure("无法创建插件目录: " + pluginsDir);
+        }
+        Path tempTarget =
+                pluginsDir.resolve("upload-" + System.currentTimeMillis() + ".jar");
+        try {
+            Files.copy(jarStream, tempTarget, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "failed to copy uploaded jar to {0}", tempTarget);
+            return UploadAndLoadResult.failure("保存上传文件失败");
+        }
+        PluginMetadata newMetadata = loadMetadataFromJar(tempTarget);
+        if (newMetadata == null || !newMetadata.hasValidId()) {
+            try {
+                Files.deleteIfExists(tempTarget);
+            } catch (IOException ignored) {
+                // ignore
+            }
+            return UploadAndLoadResult.failure(
+                    "无法读取插件元数据（META-INF/plugin.properties 或 plugin.id 无效）。");
+        }
+        String newPluginId = newMetadata.getId();
+        if (metadataById.containsKey(newPluginId)) {
+            try {
+                Files.deleteIfExists(tempTarget);
+            } catch (IOException ignored) {
+                // ignore
+            }
+            return UploadAndLoadResult.failure(
+                    "已存在同 ID 的已加载插件（"
+                            + newPluginId
+                            + "）。请先停用该插件后再上传新版本。");
+        }
+        Path target;
+        if (disabledJarPaths.containsKey(newPluginId)) {
+            target = disabledJarPaths.get(newPluginId);
+            try {
+                Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                try {
+                    Files.deleteIfExists(tempTarget);
+                } catch (IOException ignored) {
+                    // ignore
+                }
+                return UploadAndLoadResult.failure("覆盖停用状态下的 jar 失败: " + e.getMessage());
+            }
+            Path activePath = pluginsDir.resolve(getActiveJarFileName(newPluginId));
+            try {
+                Files.move(target, activePath, StandardCopyOption.REPLACE_EXISTING);
+                target = activePath;
+            } catch (IOException e) {
+                // 原 plugins/ 下文件仍被占用时，直接从 disabled 路径加载
+            }
+            clearDisabledEntry(newPluginId);
+        } else {
+            target = pluginsDir.resolve(getActiveJarFileName(newPluginId));
+            try {
+                Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                try {
+                    Files.deleteIfExists(tempTarget);
+                } catch (IOException ignored) {
+                    // ignore
+                }
+                return UploadAndLoadResult.failure("移动上传文件到目标位置失败: " + e.getMessage());
+            }
+        }
+        PluginLoadResult result = loadPlugin(target, context);
+        return UploadAndLoadResult.success(result);
     }
 
     /**
