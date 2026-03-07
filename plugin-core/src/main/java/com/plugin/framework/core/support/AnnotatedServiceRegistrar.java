@@ -32,6 +32,7 @@ public final class AnnotatedServiceRegistrar {
         String id = annotation.id();
         Class<?> contractType = annotation.contract();
         if (contractType == Void.class) {
+            // 未指定契约时取实现类第一个接口
             Class<?>[] interfaces = implClass.getInterfaces();
             if (interfaces.length > 0) {
                 contractType = interfaces[0];

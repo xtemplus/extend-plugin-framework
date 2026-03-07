@@ -50,6 +50,7 @@ public final class DefaultServiceRegistry implements ServiceRegistry {
         if (holder == null) {
             return Optional.empty();
         }
+        // 契约类型需与注册时一致或为其父类型
         if (!contractType.isAssignableFrom(holder.contractType)) {
             return Optional.empty();
         }
@@ -81,6 +82,7 @@ public final class DefaultServiceRegistry implements ServiceRegistry {
         if (holder == null) {
             return;
         }
+        // 同步从按类型索引中移除
         List<ServiceHolder> holders = servicesByType.get(holder.contractType);
         if (holders != null) {
             holders.removeIf(h -> h.id.equals(id));

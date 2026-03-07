@@ -57,7 +57,6 @@ public final class PluginRegistryManager {
     }
 
     /** @return 所有注册表条目（只读） */
-    /** @return 所有注册表条目（只读） */
     public List<PluginRegistryEntry> getAllEntries() {
         return Collections.unmodifiableList(new ArrayList<>(entriesByPluginId.values()));
     }
@@ -133,6 +132,7 @@ public final class PluginRegistryManager {
             if (content.isEmpty()) {
                 return;
             }
+            // 仅匹配一层花括号，适用于当前扁平 JSON 结构（plugins 数组内对象无嵌套）
             Matcher objectMatcher = OBJECT_PATTERN.matcher(content);
             while (objectMatcher.find()) {
                 String objectBody = objectMatcher.group(1);
@@ -256,6 +256,7 @@ public final class PluginRegistryManager {
         if (value != null) {
             sb.append(escapeJson(value));
         }
+        // value 为 null 时输出空字符串
         sb.append('"');
     }
 

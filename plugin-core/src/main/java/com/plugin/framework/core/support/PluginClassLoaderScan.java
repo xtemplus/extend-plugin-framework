@@ -27,7 +27,7 @@ public final class PluginClassLoaderScan {
     private PluginClassLoaderScan() {}
 
     /**
-     * 从 classLoader 背后的 jar 中列出指定包下的所有类名（不含子包，仅该包内 .class）。
+     * 从 classLoader 背后的 jar 中列出指定包下的所有类名（含子包；仅收集 .class 且路径不含 '-' 的条目）。
      *
      * @param classLoader 插件 URLClassLoader
      * @param basePackages 要扫描的包名数组
@@ -75,6 +75,7 @@ public final class PluginClassLoaderScan {
             if (!"jar".equals(url.getProtocol())) {
                 continue;
             }
+            // 从 jar:file:/path/to/x.jar!/ 中取出本地路径
             String path = url.getPath();
             if (path.startsWith("file:")) {
                 path = path.substring(5);
@@ -90,6 +91,7 @@ public final class PluginClassLoaderScan {
                         JarEntry entry = entries.nextElement();
                         String name = entry.getName();
                         if (name.endsWith(".class") && !name.contains("-")) {
+                            // 排除内部类等（含 '-' 的 class 名）
                             String className =
                                     name.substring(0, name.length() - 6).replace('/', '.');
                             classNames.add(className);

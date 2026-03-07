@@ -23,6 +23,9 @@ public final class PluginScopedExtensionRegistry implements ExtensionRegistry {
         delegate.register(pluginId, extension);
     }
 
+    /**
+     * 委托给底层注册表，使用传入的 pluginId（非本包装绑定的 pluginId），便于显式指定归属。
+     */
     @Override
     public void register(String pluginId, ExtensionPoint<?, ?> extension) {
         delegate.register(pluginId, extension);

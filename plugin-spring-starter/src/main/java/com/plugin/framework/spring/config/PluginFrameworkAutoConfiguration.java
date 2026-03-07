@@ -58,6 +58,7 @@ public class PluginFrameworkAutoConfiguration {
         if (extensionPointRegistry == null) {
             return new PluginContext(properties.getHostId(), logger, Locale.getDefault());
         }
+        // 提供扩展点契约注册表时，同时注入默认的 ExtensionRegistry 与 ServiceRegistry
         return new PluginContext(
                 properties.getHostId(),
                 logger,
@@ -152,6 +153,7 @@ public class PluginFrameworkAutoConfiguration {
                     properties.getSecurityTokenMinLength(),
                     properties.getSecurityTokenMaxLength());
             pluginManager.loadPlugins(pluginsDir, pluginContext);
+            // 将已加载插件逐一注册到 Spring MVC
             pluginManager.getPlugins().forEach(pluginSpringRegistrar::register);
             int pluginCount = pluginManager.getPlugins().size();
             if (properties.isBannerEnabled()) {

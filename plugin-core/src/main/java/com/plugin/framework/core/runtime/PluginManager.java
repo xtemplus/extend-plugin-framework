@@ -132,6 +132,7 @@ public final class PluginManager {
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsDir, "*.jar")) {
             for (Path jar : stream) {
+                // 已配置安全时仅加载通过 HMAC 校验的 jar
                 if (pluginRegistryManager != null && securitySecret != null) {
                     loadPluginWithSecurity(jar, context);
                 } else {
@@ -215,6 +216,7 @@ public final class PluginManager {
         }
         metadataById.remove(pluginId);
         closeClassLoader(pluginId);
+        // 扩展点与扩展注册表按 pluginId 清理，避免残留
         if (extensionPointRegistry != null) {
             extensionPointRegistry.removeImplementationsByPluginId(pluginId);
         }
@@ -245,6 +247,7 @@ public final class PluginManager {
         if (plugin == null) {
             return false;
         }
+        // 在 remove 前取出 jar 路径，用于后续移动到 disabled 目录
         Path jarPath = pluginJarPaths.get(pluginId);
         try {
             plugin.onDisable();
@@ -277,6 +280,7 @@ public final class PluginManager {
                     Files.move(jarPath, destInDisabled, StandardCopyOption.REPLACE_EXISTING);
                     disabledJarPaths.put(pluginId, destInDisabled);
                 } catch (IOException moveEx) {
+                    // 移动失败（如句柄未释放）时尝试复制，保证原路径可被覆盖
                     try {
                         Files.copy(jarPath, destInDisabled, StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException copyEx) {
@@ -341,6 +345,7 @@ public final class PluginManager {
 
     private void closeClassLoader(String pluginId) {
         ClassLoader loader = pluginClassLoaders.remove(pluginId);
+        // 一个 jar 仅对应一个 URLClassLoader；若同一 jar 通过 SPI 暴露多个 Plugin，卸载其一即会关闭该 ClassLoader，影响同 jar 其他插件。推荐一 jar 一插件。
         if (loader instanceof URLClassLoader) {
             try {
                 ((URLClassLoader) loader).close();
@@ -427,6 +432,7 @@ public final class PluginManager {
                             + "）。请先停用该插件后再上传新版本。");
         }
         Path target;
+        // 若该 ID 曾停用，则覆盖 disabled 下 jar 并移回激活路径
         if (disabledJarPaths.containsKey(newPluginId)) {
             target = disabledJarPaths.get(newPluginId);
             try {
@@ -534,6 +540,7 @@ public final class PluginManager {
             for (Plugin plugin : ServiceLoader.load(Plugin.class, classLoader)) {
                 toLoad.add(plugin);
             }
+            // 无 SPI 时尝试约定式加载（需宿主 classpath 有 plugin-spring-spi）
             if (toLoad.isEmpty()) {
                 Plugin defaultPlugin = createDefaultConventionPlugin(metadata, classLoader);
                 if (defaultPlugin != null) {
@@ -555,6 +562,7 @@ public final class PluginManager {
                 }
                 Plugin existing = pluginsById.get(pluginId);
                 if (existing != null) {
+                    // 同 ID 覆盖：先停用并移除旧插件，再加载新插件
                     logger.log(Level.INFO, "replacing existing plugin: {0}", pluginId);
                     try {
                         existing.onDisable();
@@ -588,6 +596,7 @@ public final class PluginManager {
                     }
                 }
                 logger.log(Level.INFO, "loading plugin: {0}", plugin.getName());
+                // 为当前插件创建按 pluginId 绑定的扩展注册表，便于卸载时批量移除
                 PluginContext scopedContext =
                         context.withExtensionRegistry(
                                 new PluginScopedExtensionRegistry(
@@ -610,7 +619,7 @@ public final class PluginManager {
                 }
                 loaded.add(plugin);
 
-                // 方案 A：若 context 提供 ExtensionPointRegistry，注册声明式扩展点实现（BUILTIN/HTTP）
+                // 若 context 提供 ExtensionPointRegistry，注册声明式扩展点实现（BUILTIN/HTTP）
                 ExtensionPointRegistry epRegistry = context.getExtensionPointRegistry();
                 if (epRegistry != null) {
                     this.extensionPointRegistry = epRegistry;

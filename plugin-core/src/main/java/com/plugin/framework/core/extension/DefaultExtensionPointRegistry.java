@@ -63,7 +63,7 @@ public final class DefaultExtensionPointRegistry implements ExtensionPointRegist
             List<ExtensionPointImplementation> impls =
                     implementationsByPointId.get(p.pointId);
             if (impls != null) {
-                impls.removeIf(i -> pluginId.equals(i.getPluginId()));
+                impls.remove(p.impl);
                 if (impls.isEmpty()) {
                     implementationsByPointId.remove(p.pointId);
                 }
@@ -71,6 +71,7 @@ public final class DefaultExtensionPointRegistry implements ExtensionPointRegist
         }
     }
 
+    /** 内部：按 pointId + impl 记录，用于 removeImplementationsByPluginId 时反向清理。 */
     private static final class PointAndImpl {
         final String pointId;
         final ExtensionPointImplementation impl;

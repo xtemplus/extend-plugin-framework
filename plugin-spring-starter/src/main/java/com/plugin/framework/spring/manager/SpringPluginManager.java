@@ -95,6 +95,7 @@ public class SpringPluginManager {
                                 + " META-INF/services/com.plugin.framework.core.spi.Plugin 并列出实现类。"
                                 + "宿主需依赖 plugin-spring-spi 才能使用约定式加载。");
             }
+            // 先取消被替换插件的 MVC 映射，再注册新加载的插件
             for (String pluginId : loadResult.getReplacedPluginIds()) {
                 pluginSpringRegistrar.unregister(pluginId);
             }
@@ -213,7 +214,8 @@ public class SpringPluginManager {
                     Level.WARNING,
                     "failed to save disabled state to {0}: {1}",
                     new Object[] {
-                        resolvePluginsDir().resolve(DISABLED_STATE_FILE), e.getMessage()
+                        resolvePluginsDir().resolve(DISABLED_STATE_FILE).toString(),
+                        e.getMessage()
                     });
         }
     }

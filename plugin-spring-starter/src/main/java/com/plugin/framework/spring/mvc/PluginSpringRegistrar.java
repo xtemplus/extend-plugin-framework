@@ -77,7 +77,7 @@ public final class PluginSpringRegistrar {
         }
     }
 
-    /** 约定式插件使用其 URLClassLoader，否则使用插件类的 ClassLoader。 */
+    /** 约定式插件使用其 URLClassLoader（与宿主隔离），否则使用插件类的 ClassLoader。 */
     private static ClassLoader getPluginClassLoader(Object plugin) {
         if (plugin instanceof DefaultConventionPlugin) {
             return ((DefaultConventionPlugin) plugin).getPluginClassLoader();
@@ -108,6 +108,7 @@ public final class PluginSpringRegistrar {
                 Class<?> controllerClass = ClassUtils.forName(className, pluginClassLoader);
                 String beanName = buildBeanName(pluginId, controllerClass);
                 if (applicationContext.containsBean(beanName)) {
+                    // 已存在同名 Bean（如同 ID 插件重新注册）：复用并重新注册映射，避免重复 createBean
                     Object existingController = applicationContext.getBean(beanName);
                     beanNamesForPlugin.add(beanName);
                     registerHandlerMethods(beanName, existingController);

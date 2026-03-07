@@ -28,6 +28,7 @@ public final class DefaultExtensionRegistry implements ExtensionRegistry {
                 extensions.computeIfAbsent(
                         extension.getPointId(), key -> new CopyOnWriteArrayList<>());
         list.add(extension);
+        // 未传 pluginId 的注册不纳入 byPluginId，卸载时无法按插件批量移除
     }
 
     @Override
@@ -70,6 +71,7 @@ public final class DefaultExtensionRegistry implements ExtensionRegistry {
         }
         List<ExtensionPoint<?, ?>> result = new ArrayList<>();
         for (ExtensionPoint<?, ?> extension : list) {
+            // 仅返回 supports(context) 为 true 的实现
             if (supportsContext(extension, context)) {
                 result.add(extension);
             }
