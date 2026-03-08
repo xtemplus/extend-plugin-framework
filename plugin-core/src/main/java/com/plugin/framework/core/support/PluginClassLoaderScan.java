@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 /**
  * 从插件 jar（URLClassLoader）中列出类名的工具，用于约定式插件的包扫描。
  *
- * <p>仅处理 jar 协议 URL，仅收集 .class 且路径中不包含 '-' 的条目（排除内部类等）。
+ * <p>支持 jar 与 file 协议 URL（插件加载时多为 file:/path/to/plugin.jar）；仅收集 .class 且路径中不包含 '-' 的条目（排除内部类等）。
  */
 public final class PluginClassLoaderScan {
 
@@ -72,17 +72,9 @@ public final class PluginClassLoaderScan {
         URLClassLoader urlClassLoader = (URLClassLoader) classLoader;
         Set<String> classNames = new HashSet<>();
         for (URL url : urlClassLoader.getURLs()) {
-            if (!"jar".equals(url.getProtocol())) {
+            String path = resolveJarPath(url);
+            if (path == null) {
                 continue;
-            }
-            // 从 jar:file:/path/to/x.jar!/ 中取出本地路径
-            String path = url.getPath();
-            if (path.startsWith("file:")) {
-                path = path.substring(5);
-            }
-            int sep = path.indexOf("!/");
-            if (sep > 0) {
-                path = path.substring(0, sep);
             }
             try {
                 try (JarFile jarFile = new JarFile(path)) {
@@ -106,5 +98,41 @@ public final class PluginClassLoaderScan {
             }
         }
         return classNames;
+    }
+
+    /**
+     * 从 URL 解析出本地 jar 文件路径。支持 jar:file:/path/to/x.jar!/ 与 file:/path/to/x.jar。
+     * 插件加载时通常使用 file: 协议，约定式扫描需能解析出路径以便列出类。
+     *
+     * @param url URLClassLoader 中的 URL
+     * @return 本地 jar 绝对路径，无法解析或非 jar 则 null
+     */
+    private static String resolveJarPath(URL url) {
+        if (url == null) {
+            return null;
+        }
+        String path = url.getPath();
+        if (path == null) {
+            return null;
+        }
+        if ("jar".equals(url.getProtocol())) {
+            if (path.startsWith("file:")) {
+                path = path.substring(5);
+            }
+            int sep = path.indexOf("!/");
+            if (sep > 0) {
+                path = path.substring(0, sep);
+            }
+        } else if ("file".equals(url.getProtocol())) {
+            if (!path.endsWith(".jar")) {
+                return null;
+            }
+            if (path.startsWith("file:")) {
+                path = path.substring(5);
+            }
+        } else {
+            return null;
+        }
+        return path.isEmpty() ? null : path;
     }
 }
