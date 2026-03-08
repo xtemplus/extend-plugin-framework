@@ -21,6 +21,13 @@
             <artifactId>plugin-core</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
+        <!-- optional：用于约定式插件未配置 plugin.scan.packages 时自动扫描 @RestController/@Controller 推断包 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>6.2.0</version>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 </project>
 

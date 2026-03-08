@@ -4,22 +4,26 @@ import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.spi.Plugin;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 /**
  * Spring 插件的抽象基类：从 {@code META-INF/plugin.properties} 读取 id/name，默认以入口类所在包为
- * Spring 扫描根包，子类只需实现 {@link #onEnable(PluginContext)}。
+ * Spring 扫描根包；若配置了 plugin.scan.packages 则优先使用。子类只需实现 {@link #onEnable(PluginContext)}。
  *
  * <p>使用方式：插件入口类继承本类，并保证 jar 内存在 {@code META-INF/plugin.properties}（至少
- * plugin.id、plugin.name）。无需再手写 PLUGIN_ID、PLUGIN_NAME、BASE_PACKAGES 等常量。
+ * plugin.id、plugin.name）。plugin.scan.packages 可选，不配置时使用入口类所在包。
  */
 public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
 
     private final String id;
     private final String name;
+    /** 若 plugin.properties 中配置了 plugin.scan.packages 则使用，否则用入口类所在包。 */
+    private final String[] basePackages;
 
     /**
-     * 子类构造时从 META-INF/plugin.properties 读取 plugin.id、plugin.name。
+     * 子类构造时从 META-INF/plugin.properties 读取 plugin.id、plugin.name、plugin.scan.packages。
      *
      * @throws IllegalStateException 无法加载或缺少 plugin.id 时
      */
@@ -37,6 +41,25 @@ public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
         String propName = properties.getProperty("plugin.name");
         this.id = propId != null && !propId.isEmpty() ? propId : getClass().getName();
         this.name = propName != null && !propName.isEmpty() ? propName : getClass().getSimpleName();
+        this.basePackages = parseBasePackages(properties.getProperty("plugin.scan.packages"));
+    }
+
+    private static String[] parseBasePackages(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        List<String> list = new ArrayList<>();
+        for (String part : trimmed.split(",")) {
+            String p = part.trim();
+            if (!p.isEmpty()) {
+                list.add(p);
+            }
+        }
+        return list.isEmpty() ? null : list.toArray(new String[0]);
     }
 
     @Override
@@ -56,6 +79,9 @@ public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
 
     @Override
     public String[] getBasePackages() {
+        if (basePackages != null && basePackages.length > 0) {
+            return basePackages.clone();
+        }
         return new String[] {getClass().getPackageName()};
     }
 

@@ -91,7 +91,7 @@ public class SpringPluginManager {
             if (loadResult.getLoadedPlugins().isEmpty()) {
                 throw new PluginFrameworkException(
                         "插件上传成功但加载失败：未发现有效插件。请确认 jar 内存在 META-INF/plugin.properties"
-                                + "（含 plugin.id、plugin.name、plugin.scan.packages），或提供"
+                                + "（含 plugin.id、plugin.name；plugin.scan.packages 可选，约定式下不配置会自动推断），或提供"
                                 + " META-INF/services/com.plugin.framework.core.spi.Plugin 并列出实现类。"
                                 + "宿主需依赖 plugin-spring-spi 才能使用约定式加载。");
             }
