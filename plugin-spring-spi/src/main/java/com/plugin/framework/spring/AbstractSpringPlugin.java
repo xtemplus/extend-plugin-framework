@@ -1,5 +1,6 @@
 package com.plugin.framework.spring;
 
+import com.plugin.framework.core.common.PluginConstants;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.spi.Plugin;
 import java.io.IOException;
@@ -30,12 +31,12 @@ public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
     protected AbstractSpringPlugin() {
         Properties properties = new Properties();
         try (InputStream in =
-                getClass().getClassLoader().getResourceAsStream("META-INF/plugin.properties")) {
+                getClass().getClassLoader().getResourceAsStream(PluginConstants.METADATA_PATH)) {
             if (in != null) {
                 properties.load(in);
             }
         } catch (IOException e) {
-            throw new IllegalStateException("加载 META-INF/plugin.properties 失败", e);
+            throw new IllegalStateException("加载 " + PluginConstants.METADATA_PATH + " 失败", e);
         }
         String propId = properties.getProperty("plugin.id");
         String propName = properties.getProperty("plugin.name");
@@ -53,7 +54,7 @@ public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
             return null;
         }
         List<String> list = new ArrayList<>();
-        for (String part : trimmed.split(",")) {
+        for (String part : trimmed.split(PluginConstants.DELIMITER_COMMA)) {
             String p = part.trim();
             if (!p.isEmpty()) {
                 list.add(p);

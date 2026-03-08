@@ -4,6 +4,7 @@ import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
 import com.plugin.framework.spring.mvc.PluginSpringRegistrar;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -18,7 +19,7 @@ import java.util.logging.Logger;
  */
 public final class PluginBootstrapRunner {
 
-    private static final Logger LOGGER =
+    private static final Logger logger =
             Logger.getLogger(PluginBootstrapRunner.class.getName());
 
     private static final String REGISTRY_FILE_NAME = "plugin-registry.json";
@@ -57,8 +58,8 @@ public final class PluginBootstrapRunner {
         Path pluginsDir = properties.resolvePluginsDir();
         try {
             Files.createDirectories(pluginsDir);
-        } catch (Exception e) {
-            LOGGER.log(
+        } catch (IOException e) {
+            logger.log(
                     Level.WARNING,
                     "failed to create plugins directory: " + pluginsDir + ", " + e.getMessage());
             return;
@@ -77,7 +78,7 @@ public final class PluginBootstrapRunner {
         if (properties.isBannerEnabled()) {
             printBanner(properties.getHostId(), pluginsDir.toString(), pluginCount);
         }
-        LOGGER.info(
+        logger.info(
                 "Plugin Framework started. hostId="
                         + properties.getHostId()
                         + ", pluginsDir="

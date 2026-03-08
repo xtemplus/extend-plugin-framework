@@ -1,5 +1,6 @@
 package com.plugin.framework.spring.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plugin.framework.core.extension.ExtensionPointRegistry;
 import com.plugin.framework.core.registry.DefaultExtensionRegistry;
 import com.plugin.framework.core.registry.DefaultServiceRegistry;
@@ -7,7 +8,6 @@ import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
 import com.plugin.framework.spring.manager.SpringPluginManager;
 import com.plugin.framework.spring.mvc.PluginSpringRegistrar;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Locale;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;

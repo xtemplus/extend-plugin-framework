@@ -78,7 +78,6 @@ public final class PluginSpringRegistrar {
         }
     }
 
-    /** Bean 名称格式：pluginId#Controller 全类名。 */
     private void registerControllersInPackage(
             String basePackage,
             ClassLoader pluginClassLoader,

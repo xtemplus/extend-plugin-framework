@@ -5,7 +5,7 @@ import com.plugin.framework.core.runtime.PluginMetadata;
 import com.plugin.framework.core.spi.Plugin;
 import com.plugin.framework.core.spi.PluginService;
 import com.plugin.framework.core.support.AnnotatedServiceRegistrar;
-import com.plugin.framework.core.support.PluginClassLoaderScan;
+import com.plugin.framework.core.support.PluginClassLoaderScanner;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -78,7 +78,7 @@ public final class DefaultConventionPlugin implements Plugin, SpringPlugin {
      */
     private String[] inferScanPackagesFromJar() {
         Set<String> packages = new HashSet<>();
-        Set<String> classNames = PluginClassLoaderScan.listAllClassNamesFromJars(pluginClassLoader);
+        Set<String> classNames = PluginClassLoaderScanner.listAllClassNamesFromJars(pluginClassLoader);
         for (String className : classNames) {
             try {
                 Class<?> clazz = pluginClassLoader.loadClass(className);

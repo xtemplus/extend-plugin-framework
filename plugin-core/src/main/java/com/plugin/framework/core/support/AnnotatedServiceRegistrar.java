@@ -78,7 +78,7 @@ public final class AnnotatedServiceRegistrar {
             return;
         }
         List<String> classNames =
-                PluginClassLoaderScan.listClassNamesInPackages(classLoader, basePackages);
+                PluginClassLoaderScanner.listClassNamesInPackages(classLoader, basePackages);
         for (String className : classNames) {
             try {
                 Class<?> clazz = classLoader.loadClass(className);

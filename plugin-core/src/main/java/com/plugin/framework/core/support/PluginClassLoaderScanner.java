@@ -16,16 +16,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 从插件 jar（URLClassLoader）中列出类名的工具，用于约定式插件的包扫描。
+ * 插件 ClassLoader 扫描器：从插件 jar（URLClassLoader）中列出类名，用于约定式插件的包扫描。
  *
  * <p>支持 jar 与 file 协议 URL（插件加载时多为 file:/path/to/plugin.jar）；仅收集 .class 且路径中不包含 '-' 的条目（排除内部类等）。
  */
-public final class PluginClassLoaderScan {
+public final class PluginClassLoaderScanner {
 
     private static final Logger logger =
-            Logger.getLogger(PluginClassLoaderScan.class.getName());
+            Logger.getLogger(PluginClassLoaderScanner.class.getName());
 
-    private PluginClassLoaderScan() {}
+    private PluginClassLoaderScanner() {}
 
     /**
      * 从 classLoader 背后的 jar 中列出指定包下的所有类名（含子包；仅收集 .class 且路径不含 '-' 的条目）。

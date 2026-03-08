@@ -15,18 +15,34 @@ import java.util.Optional;
 import org.json.JSONObject;
 
 /**
- * 扩展点运行时默认实现：查注册表、契约校验、进程内反射或 HTTP 调用。
+ * 扩展点运行时的默认实现：基于注册表查找定义与实现，支持契约校验，以及进程内反射（BUILTIN）与
+ * HTTP 远程调用两种执行方式。
+ *
+ * <p>宿主通过 {@link ExtensionPointRuntime#invoke(String, Object)} 或 {@link #invokeAll} 调用
+ * 扩展点时，本实现负责 request schema 校验、按实现类型派发执行、response schema 校验并聚合结果。
  */
-public final class ExtensionPointRuntimeImpl implements ExtensionPointRuntime {
+public final class DefaultExtensionPointRuntime implements ExtensionPointRuntime {
 
     private final ExtensionPointRegistry registry;
     private final HttpClient httpClient;
 
-    public ExtensionPointRuntimeImpl(ExtensionPointRegistry registry) {
+    /**
+     * 使用默认的 {@link HttpClient} 构造。
+     *
+     * @param registry 扩展点注册表
+     */
+    public DefaultExtensionPointRuntime(ExtensionPointRegistry registry) {
         this(registry, HttpClient.newHttpClient());
     }
 
-    public ExtensionPointRuntimeImpl(ExtensionPointRegistry registry, HttpClient httpClient) {
+    /**
+     * 使用指定的 {@link HttpClient} 构造（便于 HTTP 扩展点使用自定义超时、连接池等）。
+     *
+     * @param registry 扩展点注册表
+     * @param httpClient HTTP 客户端，为 null 时使用默认
+     */
+    public DefaultExtensionPointRuntime(
+            ExtensionPointRegistry registry, HttpClient httpClient) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.httpClient = httpClient != null ? httpClient : HttpClient.newHttpClient();
     }
