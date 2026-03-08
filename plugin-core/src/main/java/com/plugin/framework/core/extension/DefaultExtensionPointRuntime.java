@@ -1,5 +1,6 @@
 package com.plugin.framework.core.extension;
 
+import com.plugin.framework.core.common.ExtensionImplType;
 import com.plugin.framework.core.contract.SchemaValidator;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -108,10 +109,10 @@ public final class DefaultExtensionPointRuntime implements ExtensionPointRuntime
             String pointId,
             ExtensionPointImplementation impl,
             Map<String, Object> inputMap) throws Exception {
-        if (impl.getType() == ExtensionPointImplementationType.BUILTIN) {
+        if (impl.getType() == ExtensionImplType.BUILTIN) {
             return executeBuiltin(pointId, impl, inputMap);
         }
-        if (impl.getType() == ExtensionPointImplementationType.HTTP) {
+        if (impl.getType() == ExtensionImplType.HTTP) {
             return executeHttp(pointId, impl, inputMap);
         }
         return null;

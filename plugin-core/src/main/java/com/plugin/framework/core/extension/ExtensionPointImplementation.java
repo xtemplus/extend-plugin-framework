@@ -1,5 +1,6 @@
 package com.plugin.framework.core.extension;
 
+import com.plugin.framework.core.common.ExtensionImplType;
 import java.util.Objects;
 
 /**
@@ -11,7 +12,7 @@ import java.util.Objects;
 public final class ExtensionPointImplementation {
 
     private final String pluginId;
-    private final ExtensionPointImplementationType type;
+    private final ExtensionImplType type;
     private final int priority;
 
     /** BUILTIN：插件 ClassLoader。 */
@@ -28,7 +29,7 @@ public final class ExtensionPointImplementation {
 
     private ExtensionPointImplementation(
             String pluginId,
-            ExtensionPointImplementationType type,
+            ExtensionImplType type,
             int priority,
             ClassLoader classLoader,
             String handlerClass,
@@ -52,7 +53,7 @@ public final class ExtensionPointImplementation {
             int priority) {
         return new ExtensionPointImplementation(
                 pluginId,
-                ExtensionPointImplementationType.BUILTIN,
+                ExtensionImplType.BUILTIN,
                 priority,
                 classLoader,
                 handlerClass,
@@ -65,7 +66,7 @@ public final class ExtensionPointImplementation {
             String pluginId, String baseUrl, int priority) {
         return new ExtensionPointImplementation(
                 pluginId,
-                ExtensionPointImplementationType.HTTP,
+                ExtensionImplType.HTTP,
                 priority,
                 null,
                 null,
@@ -77,7 +78,7 @@ public final class ExtensionPointImplementation {
         return pluginId;
     }
 
-    public ExtensionPointImplementationType getType() {
+    public ExtensionImplType getType() {
         return type;
     }
 
