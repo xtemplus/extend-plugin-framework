@@ -4,9 +4,6 @@ import com.plugin.framework.core.registry.ExtensionRegistry;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.spi.ExtensionPoint;
 import com.plugin.framework.core.spi.Plugin;
-import com.plugin.framework.core.spi.PluginEndpoint;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -61,10 +58,5 @@ public final class SmsChannelPlugin implements Plugin {
     @Override
     public void onDisable() {
         // 扩展点由注册表持有，插件卸载后不再被调用即可
-    }
-
-    @Override
-    public List<PluginEndpoint> getEndpoints() {
-        return Collections.emptyList();
     }
 }

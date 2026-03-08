@@ -2,11 +2,8 @@ package com.plugin.framework.spring;
 
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.spi.Plugin;
-import com.plugin.framework.core.spi.PluginEndpoint;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 
 /**
@@ -55,11 +52,6 @@ public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
     @Override
     public void onDisable() {
         // 默认空实现，子类按需覆盖
-    }
-
-    @Override
-    public List<PluginEndpoint> getEndpoints() {
-        return Collections.emptyList();
     }
 
     @Override

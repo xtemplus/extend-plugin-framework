@@ -6,9 +6,7 @@ import com.plugin.framework.core.registry.ExtensionRegistry;
 import com.plugin.framework.core.registry.PluginScopedExtensionRegistry;
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.security.PluginSecurityUtil;
-import com.plugin.framework.core.spi.HttpMethod;
 import com.plugin.framework.core.spi.Plugin;
-import com.plugin.framework.core.spi.PluginEndpoint;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -33,7 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * 插件管理器：从指定目录或单个 jar 加载/卸载/停用插件，维护端点与元数据，支持可选安全校验。
+ * 插件管理器：从指定目录或单个 jar 加载/卸载/停用插件，维护元数据，支持可选安全校验。
  *
  * <p>主要能力：
  *
@@ -51,14 +49,8 @@ public final class PluginManager {
     /** 已加载的插件列表（顺序与加载顺序一致）。 */
     private final List<Plugin> plugins = new ArrayList<>();
 
-    /** 所有插件端点扁平列表，供路由查找。 */
-    private final List<PluginEndpoint> endpoints = new ArrayList<>();
-
     /** 按插件 ID 索引的插件实例。 */
     private final Map<String, Plugin> pluginsById = new HashMap<>();
-
-    /** 按插件 ID 索引的该插件端点列表，用于卸载/停用时批量移除。 */
-    private final Map<String, List<PluginEndpoint>> endpointsByPluginId = new HashMap<>();
 
     /** 当前激活的插件 jar 路径（pluginId -> Path）。 */
     private final Map<String, Path> pluginJarPaths = new HashMap<>();
@@ -167,32 +159,12 @@ public final class PluginManager {
         return Collections.unmodifiableList(plugins);
     }
 
-    public List<PluginEndpoint> getEndpoints() {
-        return Collections.unmodifiableList(endpoints);
-    }
-
     public Map<String, PluginMetadata> getPluginMetadata() {
         return Collections.unmodifiableMap(metadataById);
     }
 
     /**
-     * 按路径与方法查找第一个匹配的端点。
-     *
-     * @param path 路径
-     * @param method HTTP 方法
-     * @return 匹配的端点，不存在则 empty
-     */
-    public Optional<PluginEndpoint> findEndpoint(String path, HttpMethod method) {
-        return endpoints.stream()
-                .filter(
-                        endpoint ->
-                                endpoint.getPath().equals(path)
-                                        && endpoint.getMethod() == method)
-                .findFirst();
-    }
-
-    /**
-     * 卸载指定 ID 的插件，移除其端点并从磁盘删除对应的 jar 文件，便于再次上传时目录干净。
+     * 卸载指定 ID 的插件，从磁盘删除对应的 jar 文件，便于再次上传时目录干净。
      *
      * @param pluginId 插件唯一标识
      * @return 是否找到并卸载了插件
@@ -210,10 +182,6 @@ public final class PluginManager {
             logger.log(Level.WARNING, "failed to disable plugin: " + pluginId, ex);
         }
         plugins.remove(plugin);
-        List<PluginEndpoint> oldEndpoints = endpointsByPluginId.remove(pluginId);
-        if (oldEndpoints != null) {
-            endpoints.removeAll(oldEndpoints);
-        }
         metadataById.remove(pluginId);
         closeClassLoader(pluginId);
         // 扩展点与扩展注册表按 pluginId 清理，避免残留
@@ -255,10 +223,6 @@ public final class PluginManager {
             logger.log(Level.WARNING, "failed to disable plugin: " + pluginId, ex);
         }
         plugins.remove(plugin);
-        List<PluginEndpoint> oldEndpoints = endpointsByPluginId.remove(pluginId);
-        if (oldEndpoints != null) {
-            endpoints.removeAll(oldEndpoints);
-        }
         metadataById.remove(pluginId);
         pluginJarPaths.remove(pluginId);
         closeClassLoader(pluginId);
@@ -489,7 +453,7 @@ public final class PluginManager {
     }
 
     /**
-     * 从 jar 加载插件：解析元数据、校验安全（可选）、SPI 或约定式加载、注册端点与注册表。
+     * 从 jar 加载插件：解析元数据、校验安全（可选）、SPI 或约定式加载、注册扩展点与注册表。
      */
     private PluginLoadResult loadPluginJar(
             Path jar, PluginContext context, boolean securityEnabled) {
@@ -570,10 +534,6 @@ public final class PluginManager {
                         logger.log(Level.WARNING, "failed to disable existing plugin: " + pluginId, ex);
                     }
                     plugins.remove(existing);
-                    List<PluginEndpoint> oldEndpoints = endpointsByPluginId.remove(pluginId);
-                    if (oldEndpoints != null) {
-                        endpoints.removeAll(oldEndpoints);
-                    }
                     metadataById.remove(pluginId);
                     Path oldJar = pluginJarPaths.remove(pluginId);
                     closeClassLoader(pluginId);
@@ -605,13 +565,6 @@ public final class PluginManager {
                 plugins.add(plugin);
                 pluginsById.put(pluginId, plugin);
                 pluginClassLoaders.put(pluginId, classLoader);
-                List<PluginEndpoint> pluginEndpoints = plugin.getEndpoints();
-                if (pluginEndpoints != null && !pluginEndpoints.isEmpty()) {
-                    endpoints.addAll(pluginEndpoints);
-                    endpointsByPluginId.put(pluginId, new ArrayList<>(pluginEndpoints));
-                } else {
-                    endpointsByPluginId.remove(pluginId);
-                }
                 metadataById.put(pluginId, metadata);
                 pluginJarPaths.put(pluginId, jar);
                 if (securityEnabled && pluginRegistryManager != null) {

@@ -3,10 +3,7 @@ package com.plugin.framework.spring;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginMetadata;
 import com.plugin.framework.core.spi.Plugin;
-import com.plugin.framework.core.spi.PluginEndpoint;
 import com.plugin.framework.core.support.AnnotatedServiceRegistrar;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -70,11 +67,6 @@ public final class DefaultConventionPlugin implements Plugin, SpringPlugin {
     @Override
     public void onDisable() {
         // 约定式插件无额外资源需释放
-    }
-
-    @Override
-    public List<PluginEndpoint> getEndpoints() {
-        return Collections.emptyList();
     }
 
     @Override

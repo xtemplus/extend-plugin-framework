@@ -1,7 +1,6 @@
 package com.plugin.framework.core.spi;
 
 import com.plugin.framework.core.runtime.PluginContext;
-import java.util.List;
 
 /**
  * 插件 SPI 接口，所有插件必须实现。
@@ -33,12 +32,5 @@ public interface Plugin {
      * 插件禁用回调。
      */
     void onDisable();
-
-    /**
-     * 插件暴露的 HTTP 端点列表。
-     *
-     * @return 端点列表
-     */
-    List<PluginEndpoint> getEndpoints();
 }
 
