@@ -8,6 +8,7 @@ import com.plugin.framework.core.runtime.PluginManager;
 import com.plugin.framework.core.runtime.PluginMetadata;
 import com.plugin.framework.core.runtime.UploadAndLoadResult;
 import com.plugin.framework.core.spi.Plugin;
+import com.plugin.framework.core.common.PluginConstants;
 import com.plugin.framework.spring.config.PluginFrameworkProperties;
 import com.plugin.framework.spring.exception.PluginArgumentException;
 import com.plugin.framework.spring.exception.PluginFrameworkException;
@@ -75,7 +76,7 @@ public class SpringPluginManager {
             throw new PluginArgumentException("插件文件不能为空");
         }
         String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || !originalFilename.endsWith(".jar")) {
+        if (originalFilename == null || !originalFilename.endsWith(PluginConstants.SUFFIX_JAR)) {
             throw new PluginArgumentException(
                     "插件文件名不合法，必须为 .jar 结尾且遵循安全命名规范");
         }
@@ -181,7 +182,7 @@ public class SpringPluginManager {
                     map.put(id, pluginsDir.resolve(fileName));
                 }
             }
-            pluginManager.setDisabledJarPaths(map);
+            pluginManager.restoreDisabledState(map);
         } catch (IOException e) {
             logger.log(
                     Level.WARNING,

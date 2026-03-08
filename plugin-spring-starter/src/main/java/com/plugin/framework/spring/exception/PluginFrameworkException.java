@@ -1,5 +1,7 @@
 package com.plugin.framework.spring.exception;
 
+import java.io.Serial;
+
 /**
  * 插件框架运行时异常基类，用于上传、卸载、停用等操作失败时抛出。
  *
@@ -9,6 +11,7 @@ package com.plugin.framework.spring.exception;
  */
 public class PluginFrameworkException extends RuntimeException {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**

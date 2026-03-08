@@ -182,7 +182,7 @@ public final class PluginRegistryManager {
                                 remarks);
                 entriesByPluginId.put(pluginId, entry);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             LOGGER.log(
                     Level.WARNING,
                     "failed to load plugin registry from json: " + registryFile,
@@ -225,7 +225,7 @@ public final class PluginRegistryManager {
                 Files.createDirectories(parent);
             }
             Files.writeString(registryFile, sb.toString(), StandardCharsets.UTF_8);
-        } catch (Exception e) {
+        } catch (IOException e) {
             LOGGER.log(
                     Level.WARNING,
                     "failed to persist plugin registry to json: " + registryFile,

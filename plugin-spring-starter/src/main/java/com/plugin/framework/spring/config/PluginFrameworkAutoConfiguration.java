@@ -1,16 +1,13 @@
 package com.plugin.framework.spring.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plugin.framework.core.extension.ExtensionPointRegistry;
 import com.plugin.framework.core.registry.DefaultExtensionRegistry;
 import com.plugin.framework.core.registry.DefaultServiceRegistry;
-import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
 import com.plugin.framework.spring.manager.SpringPluginManager;
 import com.plugin.framework.spring.mvc.PluginSpringRegistrar;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Locale;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,8 +35,6 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @AutoConfiguration
 @EnableConfigurationProperties(PluginFrameworkProperties.class)
 public class PluginFrameworkAutoConfiguration {
-
-    private static final Logger log = Logger.getLogger("com.plugin.framework.spring");
 
     /**
      * 默认的插件上下文 Bean；使用 {@link PluginFrameworkProperties#getHostId()} 与默认 Locale。
@@ -121,13 +116,33 @@ public class PluginFrameworkAutoConfiguration {
     }
 
     /**
-     * 应用启动后自动扫描插件目录、加载插件并注册到 Spring MVC；当 {@code plugin.framework.auto-load-on-startup}
-     * 为 true（默认）时注册。
+     * 插件启动引导器 Bean，供 CommandLineRunner 与单测使用。
      *
      * @param pluginManager 插件管理器
      * @param pluginContext 插件上下文
      * @param pluginSpringRegistrar MVC 注册器
      * @param properties 配置属性
+     * @return 启动引导器
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PluginBootstrapRunner pluginBootstrapRunner(
+            PluginManager pluginManager,
+            PluginContext pluginContext,
+            PluginSpringRegistrar pluginSpringRegistrar,
+            PluginFrameworkProperties properties) {
+        return new PluginBootstrapRunner(
+                pluginManager,
+                pluginContext,
+                pluginSpringRegistrar,
+                properties);
+    }
+
+    /**
+     * 应用启动后自动扫描插件目录、加载插件并注册到 Spring MVC；当 {@code plugin.framework.auto-load-on-startup}
+     * 为 true（默认）时注册。逻辑委托给 {@link PluginBootstrapRunner}，便于单测与替换。
+     *
+     * @param bootstrapRunner 启动引导器
      * @return 启动时执行的 CommandLineRunner
      */
     @Bean
@@ -136,55 +151,7 @@ public class PluginFrameworkAutoConfiguration {
             name = "auto-load-on-startup",
             havingValue = "true",
             matchIfMissing = true)
-    public CommandLineRunner loadPluginsAtStartup(
-            PluginManager pluginManager,
-            PluginContext pluginContext,
-            PluginSpringRegistrar pluginSpringRegistrar,
-            PluginFrameworkProperties properties) {
-        return args -> {
-            Path pluginsDir = properties.resolvePluginsDir();
-            Files.createDirectories(pluginsDir);
-            Path registryFile = pluginsDir.resolve("plugin-registry.json");
-            PluginRegistryManager registryManager = new PluginRegistryManager(registryFile);
-            String secret = properties.resolveSecret();
-            pluginManager.configureSecurity(
-                    registryManager,
-                    secret,
-                    properties.getSecurityTokenMinLength(),
-                    properties.getSecurityTokenMaxLength());
-            pluginManager.loadPlugins(pluginsDir, pluginContext);
-            // 将已加载插件逐一注册到 Spring MVC
-            pluginManager.getPlugins().forEach(pluginSpringRegistrar::register);
-            int pluginCount = pluginManager.getPlugins().size();
-            if (properties.isBannerEnabled()) {
-                printStartupBanner(
-                        properties.getHostId(), pluginsDir.toString(), pluginCount);
-            }
-            log.info(
-                    "Plugin Framework started. hostId="
-                            + properties.getHostId()
-                            + ", pluginsDir="
-                            + pluginsDir
-                            + ", loadedPlugins="
-                            + pluginCount);
-        };
-    }
-
-    /**
-     * 在控制台打印插件框架启动 Banner。
-     *
-     * @param hostId 宿主 ID
-     * @param pluginsDir 插件目录
-     * @param loadedCount 已加载插件数量
-     */
-    private static void printStartupBanner(String hostId, String pluginsDir, int loadedCount) {
-        String line = "========================================";
-        System.out.println();
-        System.out.println(line);
-        System.out.println("  Plugin Framework Ready");
-        System.out.println("  Host    : " + hostId);
-        System.out.println("  Plugins : " + pluginsDir + " (" + loadedCount + " loaded)");
-        System.out.println(line);
-        System.out.println();
+    public CommandLineRunner loadPluginsAtStartup(PluginBootstrapRunner bootstrapRunner) {
+        return args -> bootstrapRunner.run();
     }
 }

@@ -43,10 +43,11 @@ public final class DefaultConventionPlugin implements Plugin, SpringPlugin {
 
     /**
      * 供宿主注册 Controller 时使用：约定式插件实例由宿主创建，getClass().getClassLoader() 为宿主
-     * ClassLoader，需通过本方法获取插件 jar 的 ClassLoader。
+     * ClassLoader，因此重写为返回插件 jar 的 ClassLoader。
      *
      * @return 插件 jar 的 ClassLoader
      */
+    @Override
     public ClassLoader getPluginClassLoader() {
         return pluginClassLoader;
     }

@@ -22,11 +22,17 @@ public final class DeclaredExtensionPoint {
             String handlerClass,
             String handlerMethod,
             String baseUrl) {
-        this.pointId = pointId;
-        this.implementationType = implementationType;
-        this.handlerClass = handlerClass;
-        this.handlerMethod = handlerMethod;
-        this.baseUrl = baseUrl;
+        this.pointId = Objects.requireNonNull(pointId, "pointId").trim();
+        this.implementationType =
+                implementationType == null || implementationType.trim().isEmpty()
+                        ? "builtin"
+                        : implementationType.trim();
+        this.handlerClass = handlerClass == null ? null : handlerClass.trim();
+        this.handlerMethod =
+                handlerMethod == null || handlerMethod.trim().isEmpty()
+                        ? "handle"
+                        : handlerMethod.trim();
+        this.baseUrl = baseUrl == null ? null : baseUrl.trim();
     }
 
     public String getPointId() {

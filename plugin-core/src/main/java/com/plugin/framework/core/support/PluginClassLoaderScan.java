@@ -1,5 +1,6 @@
 package com.plugin.framework.core.support;
 
+import com.plugin.framework.core.common.PluginConstants;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -48,9 +49,13 @@ public final class PluginClassLoaderScan {
             if (basePackage == null || basePackage.isEmpty()) {
                 continue;
             }
-            String prefix = basePackage.replace('.', '/') + "/";
+            String prefix =
+                    basePackage.replace(PluginConstants.PACKAGE_SEPARATOR_CHAR, '/')
+                            + PluginConstants.PATH_SEPARATOR;
             for (String className : allClassNames) {
-                String path = className.replace('.', '/') + ".class";
+                String path =
+                        className.replace(PluginConstants.PACKAGE_SEPARATOR_CHAR, '/')
+                                + PluginConstants.SUFFIX_CLASS;
                 if (path.startsWith(prefix)) {
                     result.add(className);
                 }
@@ -82,10 +87,16 @@ public final class PluginClassLoaderScan {
                     while (entries.hasMoreElements()) {
                         JarEntry entry = entries.nextElement();
                         String name = entry.getName();
-                        if (name.endsWith(".class") && !name.contains("-")) {
+                        if (name.endsWith(PluginConstants.SUFFIX_CLASS)
+                                && !name.contains(PluginConstants.DELIMITER_HYPHEN)) {
                             // 排除内部类等（含 '-' 的 class 名）
                             String className =
-                                    name.substring(0, name.length() - 6).replace('/', '.');
+                                    name.substring(
+                                                    0,
+                                                    name.length() - PluginConstants.SUFFIX_CLASS.length())
+                                            .replace(
+                                                    PluginConstants.PATH_SEPARATOR.charAt(0),
+                                                    PluginConstants.PACKAGE_SEPARATOR_CHAR);
                             classNames.add(className);
                         }
                     }
@@ -115,20 +126,20 @@ public final class PluginClassLoaderScan {
         if (path == null) {
             return null;
         }
-        if ("jar".equals(url.getProtocol())) {
-            if (path.startsWith("file:")) {
-                path = path.substring(5);
+        if (PluginConstants.PROTOCOL_JAR.equals(url.getProtocol())) {
+            if (path.startsWith(PluginConstants.PREFIX_FILE)) {
+                path = path.substring(PluginConstants.PREFIX_FILE_LENGTH);
             }
-            int sep = path.indexOf("!/");
+            int sep = path.indexOf(PluginConstants.JAR_ENTRY_SEPARATOR);
             if (sep > 0) {
                 path = path.substring(0, sep);
             }
-        } else if ("file".equals(url.getProtocol())) {
-            if (!path.endsWith(".jar")) {
+        } else if (PluginConstants.PROTOCOL_FILE.equals(url.getProtocol())) {
+            if (!path.endsWith(PluginConstants.SUFFIX_JAR)) {
                 return null;
             }
-            if (path.startsWith("file:")) {
-                path = path.substring(5);
+            if (path.startsWith(PluginConstants.PREFIX_FILE)) {
+                path = path.substring(PluginConstants.PREFIX_FILE_LENGTH);
             }
         } else {
             return null;

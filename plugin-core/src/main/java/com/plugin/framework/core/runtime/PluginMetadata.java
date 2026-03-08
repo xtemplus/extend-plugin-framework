@@ -1,5 +1,6 @@
 package com.plugin.framework.core.runtime;
 
+import com.plugin.framework.core.common.PluginConstants;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -136,7 +137,7 @@ public final class PluginMetadata {
             return new String[0];
         }
         List<String> list = new ArrayList<>();
-        for (String part : trimmed.split(",")) {
+        for (String part : trimmed.split(PluginConstants.DELIMITER_COMMA)) {
             String p = part.trim();
             if (!p.isEmpty()) {
                 list.add(p);

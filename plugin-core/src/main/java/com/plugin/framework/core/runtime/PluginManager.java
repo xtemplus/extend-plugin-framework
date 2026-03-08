@@ -7,6 +7,7 @@ import com.plugin.framework.core.registry.PluginScopedExtensionRegistry;
 import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.security.PluginSecurityUtil;
 import com.plugin.framework.core.spi.Plugin;
+import com.plugin.framework.core.common.PluginConstants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -64,7 +65,7 @@ public final class PluginManager {
     /** 停用后保留的 jar 路径，用于同 ID 再次上传时替换并释放句柄。 */
     private final Map<String, Path> disabledJarPaths = new HashMap<>();
 
-    private static final String DISABLED_SUBDIR = "disabled";
+    private static final String DISABLED_SUBDIR = PluginConstants.DISABLED_SUBDIR;
 
     /**
      * 将 pluginId 转为可作文件名的字符串（仅保留字母数字、点、横线、下划线）。
@@ -81,14 +82,17 @@ public final class PluginManager {
      * 格式固定为 disabled/{pluginId}.jar（pluginId 已做文件名安全处理）。
      */
     public static String getDisabledJarRelativePath(String pluginId) {
-        return DISABLED_SUBDIR + "/" + sanitizePluginIdForFileName(pluginId) + ".jar";
+        return DISABLED_SUBDIR
+                + PluginConstants.PATH_SEPARATOR
+                + sanitizePluginIdForFileName(pluginId)
+                + PluginConstants.SUFFIX_JAR;
     }
 
     /**
      * 返回激活状态下该插件 jar 在 plugins 目录下的文件名（固定命名，便于上传时覆盖）。
      */
     public static String getActiveJarFileName(String pluginId) {
-        return sanitizePluginIdForFileName(pluginId) + ".jar";
+        return sanitizePluginIdForFileName(pluginId) + PluginConstants.SUFFIX_JAR;
     }
 
     /** 安全校验启用时使用的注册表管理器（可选）。 */
@@ -122,7 +126,8 @@ public final class PluginManager {
             logger.log(Level.INFO, "plugins directory not found: {0}", pluginsDir);
             return;
         }
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsDir, "*.jar")) {
+        try (DirectoryStream<Path> stream =
+                Files.newDirectoryStream(pluginsDir, PluginConstants.GLOB_JAR_FILES)) {
             for (Path jar : stream) {
                 // 已配置安全时仅加载通过 HMAC 校验的 jar
                 if (pluginRegistryManager != null && securitySecret != null) {
@@ -239,7 +244,7 @@ public final class PluginManager {
                 Files.createDirectories(disabledDir);
                 Path destInDisabled =
                         disabledDir.resolve(
-                                sanitizePluginIdForFileName(pluginId) + ".jar");
+                                sanitizePluginIdForFileName(pluginId) + PluginConstants.SUFFIX_JAR);
                 try {
                     Files.move(jarPath, destInDisabled, StandardCopyOption.REPLACE_EXISTING);
                     disabledJarPaths.put(pluginId, destInDisabled);
@@ -297,14 +302,26 @@ public final class PluginManager {
 
     /**
      * 从外部恢复停用记录（如从 JSON 文件加载），用于进程重启后仍能“上传同 ID 覆盖”。
+     * 会先清空当前停用记录，再写入传入的映射；仅用于从持久化恢复状态，请勿作为普通 setter 使用。
      *
-     * @param pluginIdToPath pluginId -> 下次上传时写入的路径（通常为 pluginsDir 下的相对或绝对路径）
+     * @param pluginIdToPath pluginId -> 下次上传时写入的路径（通常为 pluginsDir 下的绝对路径）
      */
-    public void setDisabledJarPaths(Map<String, Path> pluginIdToPath) {
+    public void restoreDisabledState(Map<String, Path> pluginIdToPath) {
         disabledJarPaths.clear();
         if (pluginIdToPath != null) {
             disabledJarPaths.putAll(pluginIdToPath);
         }
+    }
+
+    /**
+     * 从外部恢复停用记录（如从 JSON 文件加载）。
+     *
+     * @param pluginIdToPath pluginId -> 路径映射
+     * @deprecated 请使用 {@link #restoreDisabledState(Map)}，语义更明确
+     */
+    @Deprecated
+    public void setDisabledJarPaths(Map<String, Path> pluginIdToPath) {
+        restoreDisabledState(pluginIdToPath);
     }
 
     private void closeClassLoader(String pluginId) {
@@ -355,7 +372,7 @@ public final class PluginManager {
         Objects.requireNonNull(pluginsDir, "pluginsDir");
         Objects.requireNonNull(jarStream, "jarStream");
         Objects.requireNonNull(context, "context");
-        if (originalFilename == null || !originalFilename.endsWith(".jar")) {
+        if (originalFilename == null || !originalFilename.endsWith(PluginConstants.SUFFIX_JAR)) {
             return UploadAndLoadResult.failure(
                     "插件文件名不合法，必须为 .jar 结尾且遵循安全命名规范");
         }
@@ -366,7 +383,8 @@ public final class PluginManager {
             return UploadAndLoadResult.failure("无法创建插件目录: " + pluginsDir);
         }
         Path tempTarget =
-                pluginsDir.resolve("upload-" + System.currentTimeMillis() + ".jar");
+                pluginsDir.resolve(
+                        PluginConstants.UPLOAD_TEMP_PREFIX + System.currentTimeMillis() + PluginConstants.SUFFIX_JAR);
         try {
             Files.copy(jarStream, tempTarget, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
@@ -645,11 +663,13 @@ public final class PluginManager {
     /** 内部：从 jar 读取 plugin.properties 并构建 PluginMetadata。 */
     private PluginMetadata loadMetadata(Path jar) {
         try (JarFile jarFile = new JarFile(jar.toFile())) {
-            JarEntry entry = jarFile.getJarEntry("META-INF/plugin.properties");
+            JarEntry entry = jarFile.getJarEntry(PluginConstants.METADATA_PATH);
             if (entry == null) {
                 logger.log(
                         Level.WARNING,
-                        "plugin metadata file META-INF/plugin.properties not found in jar: {0}",
+                        "plugin metadata file "
+                        + PluginConstants.METADATA_PATH
+                        + " not found in jar: {0}",
                         jar);
                 return null;
             }

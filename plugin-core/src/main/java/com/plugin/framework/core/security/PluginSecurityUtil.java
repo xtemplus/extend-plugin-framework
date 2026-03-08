@@ -1,5 +1,6 @@
 package com.plugin.framework.core.security;
 
+import com.plugin.framework.core.common.PluginConstants;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -13,8 +14,6 @@ import javax.crypto.spec.SecretKeySpec;
  * {@code {pluginName}-{version}-{secureToken}.jar}。
  */
 public final class PluginSecurityUtil {
-
-    private static final String DELIMITER = ":";
 
     private static final char[] BASE62 =
             "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
@@ -46,9 +45,19 @@ public final class PluginSecurityUtil {
         Objects.requireNonNull(version, "version");
         Objects.requireNonNull(secretKey, "secretKey");
         String nonce = randomBase62(nonceLength);
-        String data = pluginId + DELIMITER + version + DELIMITER + nonce;
+        String data =
+                pluginId
+                        + PluginConstants.DELIMITER_SECURITY
+                        + version
+                        + PluginConstants.DELIMITER_SECURITY
+                        + nonce;
         String token = generateTokenInternal(data, secretKey, nonce, tokenLength);
-        return pluginName + "-" + version + "-" + token + ".jar";
+        return pluginName
+                + PluginConstants.DELIMITER_HYPHEN
+                + version
+                + PluginConstants.DELIMITER_HYPHEN
+                + token
+                + PluginConstants.SUFFIX_JAR;
     }
 
     /**
@@ -76,11 +85,11 @@ public final class PluginSecurityUtil {
         Objects.requireNonNull(pluginName, "pluginName");
         Objects.requireNonNull(version, "version");
         Objects.requireNonNull(secretKey, "secretKey");
-        if (!fileName.endsWith(".jar")) {
+        if (!fileName.endsWith(PluginConstants.SUFFIX_JAR)) {
             return false;
         }
         String baseName = fileName.substring(0, fileName.length() - 4);
-        String[] parts = baseName.split("-");
+        String[] parts = baseName.split(PluginConstants.DELIMITER_HYPHEN);
         if (parts.length < 3) {
             return false;
         }
@@ -90,7 +99,7 @@ public final class PluginSecurityUtil {
         StringBuilder nameBuilder = new StringBuilder();
         for (int i = 0; i < parts.length - 2; i++) {
             if (i > 0) {
-                nameBuilder.append("-");
+                nameBuilder.append(PluginConstants.DELIMITER_HYPHEN);
             }
             nameBuilder.append(parts[i]);
         }
@@ -105,7 +114,12 @@ public final class PluginSecurityUtil {
             return false;
         }
         String nonce = tokenFromFile.substring(0, nonceLength);
-        String data = pluginId + DELIMITER + version + DELIMITER + nonce;
+        String data =
+                pluginId
+                        + PluginConstants.DELIMITER_SECURITY
+                        + version
+                        + PluginConstants.DELIMITER_SECURITY
+                        + nonce;
         String expectedToken = generateTokenInternal(data, secretKey, nonce, tokenLength);
         return tokenFromFile.equals(expectedToken);
     }

@@ -1,8 +1,8 @@
 package com.plugin.framework.spring.mvc;
 
 import com.plugin.framework.core.spi.Plugin;
-import com.plugin.framework.spring.DefaultConventionPlugin;
 import com.plugin.framework.spring.SpringPlugin;
+import com.plugin.framework.core.common.PluginConstants;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,9 +53,10 @@ public final class PluginSpringRegistrar {
     }
 
     /**
-     * 为实现了 {@link SpringPlugin} 的插件注册 Controller。
+     * 为实现了 {@link SpringPlugin} 的插件注册 Controller。仅处理 {@link SpringPlugin} 实现；
+     * 非 SpringPlugin 实例会直接忽略。
      *
-     * @param plugin 插件实例
+     * @param plugin 插件实例（通常为 {@link Plugin}，且实现 {@link SpringPlugin}）
      */
     public void register(Object plugin) {
         if (!(plugin instanceof SpringPlugin)) {
@@ -68,24 +69,16 @@ public final class PluginSpringRegistrar {
         if (basePackages == null || basePackages.length == 0) {
             return;
         }
-        ClassLoader pluginClassLoader = getPluginClassLoader(plugin);
+        ClassLoader pluginClassLoader = springPlugin.getPluginClassLoader();
         Set<String> beanNamesForPlugin =
                 pluginControllerBeans.computeIfAbsent(pluginId, key -> new HashSet<>());
         for (String basePackage : basePackages) {
-            registerControllersInPackage(
-                    basePackage, pluginClassLoader, pluginId, beanNamesForPlugin);
+                registerControllersInPackage(
+                        basePackage, pluginClassLoader, pluginId, beanNamesForPlugin);
         }
     }
 
-    /** 约定式插件使用其 URLClassLoader（与宿主隔离），否则使用插件类的 ClassLoader。 */
-    private static ClassLoader getPluginClassLoader(Object plugin) {
-        if (plugin instanceof DefaultConventionPlugin) {
-            return ((DefaultConventionPlugin) plugin).getPluginClassLoader();
-        }
-        return plugin.getClass().getClassLoader();
-    }
-
-    /** 在指定包下扫描 @RestController，创建 Bean 并注册 Handler 方法。 */
+    /** Bean 名称格式：pluginId#Controller 全类名。 */
     private void registerControllersInPackage(
             String basePackage,
             ClassLoader pluginClassLoader,
@@ -129,7 +122,7 @@ public final class PluginSpringRegistrar {
 
     /** Bean 名称格式：pluginId#Controller 全类名。 */
     private String buildBeanName(String pluginId, Class<?> controllerClass) {
-        return pluginId + "#" + controllerClass.getName();
+        return pluginId + PluginConstants.BEAN_NAME_SEPARATOR + controllerClass.getName();
     }
 
     /**
