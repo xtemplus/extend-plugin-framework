@@ -4,6 +4,9 @@ import com.plugin.framework.core.registry.PluginRegistryManager;
 import com.plugin.framework.core.runtime.PluginContext;
 import com.plugin.framework.core.runtime.PluginManager;
 import com.plugin.framework.spring.mvc.PluginSpringRegistrar;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,6 +58,15 @@ public final class PluginBootstrapRunner {
      * 由 CommandLineRunner 在应用启动后调用。
      */
     public void run() {
+        PluginFrameworkProperties.RuntimeMode mode = properties.getRuntimeMode();
+        if (mode == PluginFrameworkProperties.RuntimeMode.DEV) {
+            runInDevMode();
+            return;
+        }
+        runInDeploymentMode();
+    }
+
+    private void runInDeploymentMode() {
         Path pluginsDir = properties.resolvePluginsDir();
         try {
             Files.createDirectories(pluginsDir);
@@ -85,6 +97,73 @@ public final class PluginBootstrapRunner {
                         + pluginsDir
                         + ", loadedPlugins="
                         + pluginCount);
+    }
+
+    /**
+     * DEV 模式下的引导：不从 plugins 目录加载 JAR，只在配置了 devClassesDirs 时尝试构造额外 ClassLoader
+     * 并加载其中声明的 Plugin，实现“无需打 JAR”的本地调试体验。若未配置 devClassesDirs，则仅打印日志提示，
+     * 插件应通过普通模块依赖参与宿主启动。
+     */
+    private void runInDevMode() {
+        String[] devDirs = properties.getDevClassesDirs();
+        if (devDirs == null || devDirs.length == 0) {
+            logger.info(
+                    "Plugin Framework running in DEV mode without devClassesDirs; "
+                            + "plugins are expected to be loaded via normal module dependencies.");
+            return;
+        }
+        URL[] urls = toUrls(devDirs);
+        if (urls.length == 0) {
+            logger.warning("Plugin Framework DEV mode: no valid devClassesDirs, skip loading.");
+            return;
+        }
+        ClassLoader parent = PluginBootstrapRunner.class.getClassLoader();
+        try (URLClassLoader devClassLoader = new URLClassLoader(urls, parent)) {
+            Logger pluginLogger = Logger.getLogger("PluginDevLoader");
+            PluginContext devContext =
+                    new PluginContext(
+                            properties.getHostId(),
+                            pluginLogger,
+                            pluginContext.getLocale(),
+                            pluginContext.getExtensionRegistry(),
+                            pluginContext.getServiceRegistry(),
+                            pluginContext.getExtensionPointRegistry());
+            pluginManager.loadPlugins(properties.resolvePluginsDir(), devContext);
+            pluginManager.getPlugins().forEach(pluginSpringRegistrar::register);
+            int pluginCount = pluginManager.getPlugins().size();
+            logger.info(
+                    "Plugin Framework DEV mode started. hostId="
+                            + properties.getHostId()
+                            + ", devClassesDirs="
+                            + String.join(",", devDirs)
+                            + ", loadedPlugins="
+                            + pluginCount);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "failed to close dev ClassLoader", e);
+        }
+    }
+
+    private static URL[] toUrls(String[] paths) {
+        return java.util.Arrays.stream(paths)
+                .filter(p -> p != null && !p.isEmpty())
+                .map(java.nio.file.Paths::get)
+                .filter(Files::exists)
+                .map(
+                        path -> {
+                            try {
+                                return path.toUri().toURL();
+                            } catch (MalformedURLException e) {
+                                Logger.getLogger(PluginBootstrapRunner.class.getName())
+                                        .log(
+                                                Level.WARNING,
+                                                "invalid devClassesDirs entry, skip: "
+                                                        + path,
+                                                e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toArray(URL[]::new);
     }
 
     private static void printBanner(String hostId, String pluginsDir, int loadedCount) {

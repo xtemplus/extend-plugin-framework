@@ -36,6 +36,33 @@ public class PluginFrameworkProperties {
     /** 是否在插件加载完成后打印启动 Banner。 */
     private boolean bannerEnabled = true;
 
+    /**
+     * 运行模式：DEV 模式下推荐通过模块依赖直接在宿主中调试插件，不依赖 JAR 上传；DEPLOYMENT 模式下从
+     * plugins 目录加载已打包的 JAR 并支持运行期上传。
+     */
+    public enum RuntimeMode {
+        DEV,
+        DEPLOYMENT
+    }
+
+    /** 运行模式，默认 DEPLOYMENT。 */
+    private RuntimeMode runtimeMode = RuntimeMode.DEPLOYMENT;
+
+    /**
+     * DEV 模式下用于本地调试的 classes 目录列表（可选），例如：
+     *
+     * <pre>
+     * plugin:
+     *   framework:
+     *     runtime-mode: DEV
+     *     dev-classes-dirs:
+     *       - ../plugin-example-case/plugin-example/system-plugin-demo-test1/target/classes
+     * </pre>
+     *
+     * 当不配置或列表为空时，DEV 模式仅关闭启动时从 plugins 目录加载与上传接口，插件以普通模块依赖方式参与宿主启动。
+     */
+    private String[] devClassesDirs;
+
     public String getHostId() {
         return hostId;
     }
@@ -98,6 +125,22 @@ public class PluginFrameworkProperties {
 
     public void setBannerEnabled(boolean bannerEnabled) {
         this.bannerEnabled = bannerEnabled;
+    }
+
+    public RuntimeMode getRuntimeMode() {
+        return runtimeMode;
+    }
+
+    public void setRuntimeMode(RuntimeMode runtimeMode) {
+        this.runtimeMode = runtimeMode;
+    }
+
+    public String[] getDevClassesDirs() {
+        return devClassesDirs == null ? null : devClassesDirs.clone();
+    }
+
+    public void setDevClassesDirs(String[] devClassesDirs) {
+        this.devClassesDirs = devClassesDirs == null ? null : devClassesDirs.clone();
     }
 
     /**

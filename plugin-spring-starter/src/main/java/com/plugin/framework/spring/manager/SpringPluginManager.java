@@ -72,6 +72,11 @@ public class SpringPluginManager {
      * @throws PluginFrameworkException 元数据无效、同 ID 已加载、未发现有效插件或 IO 异常时
      */
     public PluginLoadResult uploadAndRegister(MultipartFile file) {
+        if (properties.getRuntimeMode() == PluginFrameworkProperties.RuntimeMode.DEV) {
+            throw new PluginFrameworkException(
+                    "当前运行模式为 DEV，本地开发调试推荐通过模块依赖方式集成插件，不支持通过上传 JAR 的方式加载。"
+                            + "请在 application 配置中将 plugin.framework.runtime-mode 设置为 DEPLOYMENT 以启用上传。");
+        }
         if (file == null || file.isEmpty()) {
             throw new PluginArgumentException("插件文件不能为空");
         }
