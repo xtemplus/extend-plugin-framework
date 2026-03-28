@@ -10,9 +10,9 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.plugin.framework</groupId>
+    <groupId>io.github.xtemplus</groupId>
     <artifactId>system-base-project</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
     <name>system-base-project</name>
     <description>Example host application that loads plugins</description>
 
@@ -32,14 +32,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.plugin.framework</groupId>
+            <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-spring-starter</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
-            <groupId>com.plugin.framework</groupId>
+            <groupId>io.github.xtemplus</groupId>
             <artifactId>system-plugin-sdk</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 

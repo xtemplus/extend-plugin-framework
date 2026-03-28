@@ -1,10 +1,10 @@
 package com.example.pluginframework.example.web;
 
-import io.github.extend.plugin.core.runtime.PluginLoadResult;
-import io.github.extend.plugin.core.runtime.PluginManager;
-import io.github.extend.plugin.core.runtime.PluginMetadata;
-import io.github.extend.plugin.spring.exception.PluginFrameworkException;
-import io.github.extend.plugin.spring.manager.SpringPluginManager;
+import io.github.xtemplus.pluginframework.core.runtime.PluginLoadResult;
+import io.github.xtemplus.pluginframework.core.runtime.PluginManager;
+import io.github.xtemplus.pluginframework.core.runtime.PluginMetadata;
+import io.github.xtemplus.pluginframework.spring.exception.PluginFrameworkException;
+import io.github.xtemplus.pluginframework.spring.manager.SpringPluginManager;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;

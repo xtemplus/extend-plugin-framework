@@ -1,9 +1,9 @@
 package com.example.pluginframework.sms;
 
-import io.github.extend.plugin.core.registry.ExtensionRegistry;
-import io.github.extend.plugin.core.runtime.PluginContext;
-import io.github.extend.plugin.core.spi.ExtensionPoint;
-import io.github.extend.plugin.core.spi.Plugin;
+import io.github.xtemplus.pluginframework.core.registry.ExtensionRegistry;
+import io.github.xtemplus.pluginframework.core.runtime.PluginContext;
+import io.github.xtemplus.pluginframework.core.spi.ExtensionPoint;
+import io.github.xtemplus.pluginframework.core.spi.Plugin;
 import java.util.Map;
 
 /**
@@ -41,7 +41,7 @@ public final class SmsChannelPlugin implements Plugin {
 
     @Override
     public String getId() {
-        return "com.plugin.framework.sms.channel";
+        return "io.github.xtemplus.pluginframework.sms.channel";
     }
 
     @Override

@@ -1,33 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.plugin.framework</groupId>
+    <parent>
+        <groupId>io.github.xtemplus</groupId>
+        <artifactId>extend-plugin-framework</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>plugin-spring-spi</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>plugin-spring-spi</name>
 
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-    </properties>
-
     <dependencies>
         <dependency>
-            <groupId>com.plugin.framework</groupId>
+            <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-core</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
         </dependency>
-        <!-- optional：用于约定式插件未配置 plugin.scan.packages 时自动扫描 @RestController/@Controller 推断包 -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>6.2.0</version>
             <optional>true</optional>
         </dependency>
     </dependencies>
 </project>
-

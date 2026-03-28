@@ -1,8 +1,8 @@
 package com.example.pluginframework.example.web;
 
-import io.github.extend.plugin.core.registry.ExtensionRegistry;
-import io.github.extend.plugin.core.runtime.PluginContext;
-import io.github.extend.plugin.core.spi.ExtensionPoint;
+import io.github.xtemplus.pluginframework.core.registry.ExtensionRegistry;
+import io.github.xtemplus.pluginframework.core.runtime.PluginContext;
+import io.github.xtemplus.pluginframework.core.spi.ExtensionPoint;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

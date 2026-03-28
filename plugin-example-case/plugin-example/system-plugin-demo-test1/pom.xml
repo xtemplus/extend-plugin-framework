@@ -4,9 +4,9 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.plugin.framework</groupId>
-    <artifactId>system-system-plugin-demo-test1</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <groupId>io.github.xtemplus</groupId>
+    <artifactId>system-plugin-demo-test1</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>system-plugin-demo-test1</name>
@@ -22,29 +22,29 @@
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-webmvc</artifactId>
-                <version>5.3.10</version> <!-- 使用适合你的Spring版本 -->
+                <version>6.1.6</version>
             </dependency>
 
 
         <dependency>
-            <groupId>com.plugin.framework</groupId>
+            <groupId>io.github.xtemplus</groupId>
             <artifactId>system-plugin-sdk</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.1.0-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.plugin.framework</groupId>
+            <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-spring-spi</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>com.plugin.framework</groupId>
+                <groupId>io.github.xtemplus</groupId>
                 <artifactId>plugin-security-maven</artifactId>
-                <version>0.0.1-SNAPSHOT</version>
+                <version>0.1.0-SNAPSHOT</version>
                 <executions>
                     <execution>
                         <goals>
