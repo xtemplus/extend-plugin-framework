@@ -28,6 +28,17 @@ public interface ExtensionPoint<C, R> {
     }
 
     /**
+     * 同一 {@link #getPointId()} 下的排序权重，升序；数值越小越优先。
+     *
+     * <p>通过 {@link ExtPoint} 注册的路径使用注解 {@link ExtPoint#order()}；其他实现未覆写时默认为 {@code 0}。
+     *
+     * @return 顺序值
+     */
+    default int getOrder() {
+        return 0;
+    }
+
+    /**
      * 执行扩展逻辑。
      *
      * @param context 调用上下文

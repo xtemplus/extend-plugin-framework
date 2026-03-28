@@ -91,11 +91,11 @@ public class SpringPluginManager {
             PluginLoadResult loadResult = result.getLoadResult();
             if (loadResult.getLoadedPlugins().isEmpty()) {
                 throw new PluginFrameworkException(
-                        "插件上传成功但加载失败：未发现有效插件。请确认 jar 内存在 META-INF/plugin.properties"
-                                + "（含 plugin.id、plugin.name；plugin.scan.packages 可选，约定式下不配置会自动推断），或提供"
-                                + " META-INF/services/io.github.xtemplus.pluginframework.core.spi.Plugin"
-                                + " 并列出实现类。"
-                                + "宿主需依赖 plugin-spring-spi 才能使用约定式加载。");
+                        "插件上传成功但加载失败：未加载到任何插件实例。请核对：① META-INF/services/"
+                                + "io.github.xtemplus.pluginframework.core.spi.Plugin 是否列出实现类；② plugin.properties"
+                                + " 中 plugin.id 是否与 Plugin#getId() 一致；③ 宿主日志中是否出现 onEnable 失败（例如扩展点注册抛错）。"
+                                + "若使用约定式加载，宿主需依赖 plugin-spring-spi。"
+                                + "（此前若在同一类上对同一 pointId 声明多个 @ExtPoint，旧版会抛错导致本条提示。）");
             }
             // 先取消被替换插件的 MVC 映射，再注册新加载的插件
             for (String pluginId : loadResult.getReplacedPluginIds()) {

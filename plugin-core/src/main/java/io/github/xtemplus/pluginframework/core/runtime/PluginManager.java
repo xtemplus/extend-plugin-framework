@@ -614,6 +614,7 @@ public final class PluginManager {
                 logger.log(Level.INFO, "loading plugin: {0}", plugin.getName());
                 PluginContext scopedContext =
                         context.withExtensionRegistry(
+                                pluginId,
                                 new PluginScopedExtensionRegistry(
                                         pluginId, context.getExtensionRegistry()));
                 try {

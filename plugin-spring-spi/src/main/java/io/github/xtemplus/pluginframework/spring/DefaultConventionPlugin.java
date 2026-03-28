@@ -119,11 +119,6 @@ public final class DefaultConventionPlugin implements Plugin, SpringPlugin {
     }
 
     @Override
-    public void onDisable() {
-        // 约定式插件无额外资源需释放
-    }
-
-    @Override
     public String[] getBasePackages() {
         return getEffectiveScanPackages();
     }
