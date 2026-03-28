@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -33,6 +35,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  * {@link RequestMappingHandlerMapping}；卸载插件时可调用 {@link #unregister(String)} 移除映射。
  */
 public final class PluginSpringRegistrar {
+
+    private static final Logger LOGGER = Logger.getLogger(PluginSpringRegistrar.class.getName());
 
     private final ConfigurableApplicationContext applicationContext;
     private final RequestMappingHandlerMapping handlerMapping;
@@ -115,7 +119,15 @@ public final class PluginSpringRegistrar {
                 beanNamesForPlugin.add(beanName);
                 registerHandlerMethods(beanName, controller);
             } catch (ClassNotFoundException ex) {
-                // 单个 Controller 加载失败则跳过
+                LOGGER.log(
+                        Level.WARNING,
+                        "skip plugin controller, class not found: " + className + " (plugin " + pluginId + ")",
+                        ex);
+            } catch (LinkageError ex) {
+                LOGGER.log(
+                        Level.WARNING,
+                        "skip plugin controller, linkage error: " + className + " (plugin " + pluginId + ")",
+                        ex);
             }
         }
     }

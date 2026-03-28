@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -185,8 +186,17 @@ public final class PluginRegistryManager {
                         || jarFileName == null) {
                     continue;
                 }
-                Instant lastUpdateTime =
-                        timeStr != null ? Instant.parse(timeStr) : Instant.now();
+                Instant lastUpdateTime = Instant.now();
+                if (timeStr != null && !timeStr.isEmpty()) {
+                    try {
+                        lastUpdateTime = Instant.parse(timeStr);
+                    } catch (DateTimeParseException ex) {
+                        LOGGER.log(
+                                Level.WARNING,
+                                "invalid lastUpdateTime in registry, pluginId={0}, value={1}, using now",
+                                new Object[] {pluginId, timeStr});
+                    }
+                }
                 PluginRegistryEntry entry =
                         new PluginRegistryEntry(
                                 pluginId,

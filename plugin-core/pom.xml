@@ -16,14 +16,20 @@
 
     <name>plugin-core</name>
 
+    <!--
+      everit / org.json 为 optional：打 fat jar 后不再向宿主传递，避免与 shade 后的类重复。
+      install/deploy 时使用 dependency-reduced-pom，发布 POM 中无上述坐标。
+    -->
     <dependencies>
         <dependency>
             <groupId>org.everit.json</groupId>
             <artifactId>org.everit.json.schema</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
@@ -32,6 +38,105 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <dependencyReducedPomLocation>
+                                ${project.build.directory}/dependency-reduced-pom.xml
+                            </dependencyReducedPomLocation>
+                            <shadeSourcesContent>false</shadeSourcesContent>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.json</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.json</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.everit.json</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.everitjson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.guava.common</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.thirdparty</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.guava.thirdparty</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.validator</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.apache.commons.validator</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.beanutils</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.apache.commons.beanutils</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.digester</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.apache.commons.digester</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.collections</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.apache.commons.collections</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.logging</pattern>
+                                    <shadedPattern>io.github.xtemplus.pluginframework.internal.apache.commons.logging</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <artifactSet>
+                                <includes>
+                                    <include>org.json:json</include>
+                                    <include>org.everit.json:org.everit.json.schema</include>
+                                </includes>
+                            </artifactSet>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- shade 生成的 dependency-reduced-pom 中 parent.relativePath 常为 ../../，对单模块解析父 POM 会失败 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>fix-reduced-pom-parent-path</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <replaceregexp
+                                    file="${project.build.directory}/dependency-reduced-pom.xml"
+                                    match="\.\./\.\./pom\.xml"
+                                    replace="../pom.xml"
+                                    flags="g" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

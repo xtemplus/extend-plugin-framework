@@ -63,6 +63,8 @@
         <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.9.0</central-publishing-maven-plugin.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
+        <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
+        <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
         <!-- 正式版无 distributionManagement.repository；发 Central 须 -Pcentral-release。快照须 -Psnapshot-deploy -->
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
@@ -187,6 +189,16 @@
                     <configuration>
                         <skip>${maven.deploy.skip}</skip>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${maven-shade-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>${maven-antrun-plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

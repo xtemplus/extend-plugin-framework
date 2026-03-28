@@ -116,10 +116,12 @@ public final class PluginManager {
     /**
      * 扫描目录下所有 *.jar 并加载插件；若已配置安全则仅加载通过校验的 jar。
      *
+     * <p>与 {@link #loadPlugin}、{@link #getPlugins} 等共用实例锁，避免与并发读状态交叉时出现不一致视图。
+     *
      * @param pluginsDir 插件目录
      * @param context 插件上下文
      */
-    public void loadPlugins(Path pluginsDir, PluginContext context) {
+    public synchronized void loadPlugins(Path pluginsDir, PluginContext context) {
         Objects.requireNonNull(pluginsDir, "pluginsDir");
         Objects.requireNonNull(context, "context");
         if (!Files.isDirectory(pluginsDir)) {
@@ -149,23 +151,37 @@ public final class PluginManager {
      * @param nonceLength nonce 长度
      * @param tokenLength token 总长度
      */
-    public void configureSecurity(
+    public synchronized void configureSecurity(
             PluginRegistryManager registryManager,
             String secret,
             int nonceLength,
             int tokenLength) {
         this.pluginRegistryManager = Objects.requireNonNull(registryManager, "registryManager");
         this.securitySecret = Objects.requireNonNull(secret, "secret");
+        if (nonceLength < 1) {
+            throw new IllegalArgumentException("security nonce length must be >= 1");
+        }
+        if (tokenLength < 1) {
+            throw new IllegalArgumentException("security token length must be >= 1");
+        }
+        if (tokenLength < nonceLength) {
+            throw new IllegalArgumentException(
+                    "security token max length must be >= nonce length ("
+                            + nonceLength
+                            + " > "
+                            + tokenLength
+                            + ")");
+        }
         this.securityNonceLength = nonceLength;
         this.securityTokenLength = tokenLength;
     }
 
-    public List<Plugin> getPlugins() {
-        return Collections.unmodifiableList(plugins);
+    public synchronized List<Plugin> getPlugins() {
+        return Collections.unmodifiableList(new ArrayList<>(plugins));
     }
 
-    public Map<String, PluginMetadata> getPluginMetadata() {
-        return Collections.unmodifiableMap(metadataById);
+    public synchronized Map<String, PluginMetadata> getPluginMetadata() {
+        return Collections.unmodifiableMap(new HashMap<>(metadataById));
     }
 
     /**
@@ -280,14 +296,14 @@ public final class PluginManager {
      * @param pluginId 插件唯一标识
      * @return jar 路径，未停用或已清除则 empty
      */
-    public Optional<Path> getDisabledJarPath(String pluginId) {
+    public synchronized Optional<Path> getDisabledJarPath(String pluginId) {
         return Optional.ofNullable(disabledJarPaths.get(pluginId));
     }
 
     /**
      * 返回所有停用插件 ID 与其 jar 路径的只读视图。
      */
-    public Map<String, Path> getDisabledJarPaths() {
+    public synchronized Map<String, Path> getDisabledJarPaths() {
         return Collections.unmodifiableMap(new HashMap<>(disabledJarPaths));
     }
 
@@ -296,7 +312,7 @@ public final class PluginManager {
      *
      * @param pluginId 插件唯一标识
      */
-    public void clearDisabledEntry(String pluginId) {
+    public synchronized void clearDisabledEntry(String pluginId) {
         disabledJarPaths.remove(pluginId);
     }
 
@@ -306,7 +322,7 @@ public final class PluginManager {
      *
      * @param pluginIdToPath pluginId -> 下次上传时写入的路径（通常为 pluginsDir 下的绝对路径）
      */
-    public void restoreDisabledState(Map<String, Path> pluginIdToPath) {
+    public synchronized void restoreDisabledState(Map<String, Path> pluginIdToPath) {
         disabledJarPaths.clear();
         if (pluginIdToPath != null) {
             disabledJarPaths.putAll(pluginIdToPath);
@@ -333,6 +349,19 @@ public final class PluginManager {
             } catch (IOException ex) {
                 logger.log(Level.WARNING, "failed to close classloader for plugin: " + pluginId, ex);
             }
+        }
+    }
+
+    /** 加载失败且未登记到任何 pluginId 时释放孤儿 URLClassLoader。 */
+    private static void closeOrphanUrlClassLoader(URLClassLoader classLoader) {
+        if (classLoader == null) {
+            return;
+        }
+        try {
+            classLoader.close();
+        } catch (IOException ex) {
+            Logger.getLogger(PluginManager.class.getName())
+                    .log(Level.WARNING, "failed to close orphan plugin URLClassLoader", ex);
         }
     }
 
@@ -514,9 +543,11 @@ public final class PluginManager {
                 return new PluginLoadResult(loaded, replacedIds);
             }
         }
+        URLClassLoader classLoader = null;
+        boolean classLoaderBoundToPlugin = false;
         try {
             URL url = jar.toUri().toURL();
-            URLClassLoader classLoader =
+            classLoader =
                     new URLClassLoader(new URL[] {url}, Plugin.class.getClassLoader());
             List<Plugin> toLoad = new ArrayList<>();
             for (Plugin plugin : ServiceLoader.load(Plugin.class, classLoader)) {
@@ -528,6 +559,13 @@ public final class PluginManager {
                 if (defaultPlugin != null) {
                     toLoad.add(defaultPlugin);
                 }
+            }
+            if (toLoad.isEmpty()) {
+                logger.log(
+                        Level.WARNING,
+                        "no loadable Plugin implementation in jar (SPI or convention): {0}",
+                        jar);
+                return new PluginLoadResult(loaded, replacedIds);
             }
             for (Plugin plugin : toLoad) {
                 String pluginId = plugin.getId();
@@ -574,12 +612,22 @@ public final class PluginManager {
                     }
                 }
                 logger.log(Level.INFO, "loading plugin: {0}", plugin.getName());
-                // 为当前插件创建按 pluginId 绑定的扩展注册表，便于卸载时批量移除
                 PluginContext scopedContext =
                         context.withExtensionRegistry(
                                 new PluginScopedExtensionRegistry(
                                         pluginId, context.getExtensionRegistry()));
-                plugin.onEnable(scopedContext);
+                try {
+                    plugin.onEnable(scopedContext);
+                } catch (RuntimeException ex) {
+                    logger.log(
+                            Level.SEVERE,
+                            "plugin onEnable failed, jar="
+                                    + jar
+                                    + " pluginClass="
+                                    + plugin.getClass().getName(),
+                            ex);
+                    continue;
+                }
                 plugins.add(plugin);
                 pluginsById.put(pluginId, plugin);
                 pluginClassLoaders.put(pluginId, classLoader);
@@ -589,32 +637,42 @@ public final class PluginManager {
                     pluginRegistryManager.upsertActiveEntry(metadata, jar, null);
                 }
                 loaded.add(plugin);
+                classLoaderBoundToPlugin = true;
 
-                // 若 context 提供 ExtensionPointRegistry，注册声明式扩展点实现（BUILTIN/HTTP）
                 ExtensionPointRegistry epRegistry = context.getExtensionPointRegistry();
                 if (epRegistry != null) {
                     this.extensionPointRegistry = epRegistry;
                     List<DeclaredExtensionPoint> declared = metadata.getDeclaredExtensionPoints();
                     if (declared != null && !declared.isEmpty()) {
                         for (DeclaredExtensionPoint dep : declared) {
-                            if (dep.hasBuiltinHandler()) {
-                                ExtensionPointImplementation impl =
-                                        ExtensionPointImplementation.builtin(
-                                                pluginId,
-                                                classLoader,
-                                                dep.getHandlerClass(),
-                                                dep.getHandlerMethod() != null
-                                                        ? dep.getHandlerMethod()
-                                                        : "handle",
-                                                0);
-                                epRegistry.registerImplementation(dep.getPointId(), impl);
-                            } else if (dep.isHttp()
-                                    && dep.getBaseUrl() != null
-                                    && !dep.getBaseUrl().isEmpty()) {
-                                ExtensionPointImplementation impl =
-                                        ExtensionPointImplementation.http(
-                                                pluginId, dep.getBaseUrl(), 0);
-                                epRegistry.registerImplementation(dep.getPointId(), impl);
+                            try {
+                                if (dep.hasBuiltinHandler()) {
+                                    ExtensionPointImplementation impl =
+                                            ExtensionPointImplementation.builtin(
+                                                    pluginId,
+                                                    classLoader,
+                                                    dep.getHandlerClass(),
+                                                    dep.getHandlerMethod() != null
+                                                            ? dep.getHandlerMethod()
+                                                            : "handle",
+                                                    0);
+                                    epRegistry.registerImplementation(dep.getPointId(), impl);
+                                } else if (dep.isHttp()
+                                        && dep.getBaseUrl() != null
+                                        && !dep.getBaseUrl().isEmpty()) {
+                                    ExtensionPointImplementation impl =
+                                            ExtensionPointImplementation.http(
+                                                    pluginId, dep.getBaseUrl(), 0);
+                                    epRegistry.registerImplementation(dep.getPointId(), impl);
+                                }
+                            } catch (RuntimeException ex) {
+                                logger.log(
+                                        Level.WARNING,
+                                        "failed to register declared extension point "
+                                                + dep.getPointId()
+                                                + " for plugin "
+                                                + pluginId,
+                                        ex);
                             }
                         }
                     }
@@ -622,6 +680,10 @@ public final class PluginManager {
             }
         } catch (MalformedURLException e) {
             logger.log(Level.SEVERE, "invalid plugin jar url: " + jar, e);
+        } finally {
+            if (classLoader != null && !classLoaderBoundToPlugin) {
+                closeOrphanUrlClassLoader(classLoader);
+            }
         }
         return new PluginLoadResult(loaded, replacedIds);
     }
