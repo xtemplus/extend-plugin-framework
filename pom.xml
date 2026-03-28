@@ -6,7 +6,7 @@
 
     <groupId>io.github.xtemplus</groupId>
     <artifactId>extend-plugin-framework</artifactId>
-    <version>0.1.0</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>extend-plugin-framework</name>
@@ -40,11 +40,6 @@
         <module>plugin-security-maven</module>
     </modules>
 
-    <!--
-      快照：central.sonatype.com（id=central）。发快照请加 -Psnapshot-deploy（见下方 profile）。
-      正式版：仅 central-publishing-maven-plugin 上传；不设 release 型 repository，避免 OSSRH 402。
-      默认 maven.deploy.skip=true，避免对正式版执行 deploy 时出现「repository was not specified」。
-    -->
     <distributionManagement>
         <snapshotRepository>
             <id>central</id>
@@ -53,8 +48,9 @@
     </distributionManagement>
 
     <properties>
+        <!-- 全仓库版本唯一入口 -->
+        <revision>0.2.0</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- 字节码目标 Java 8；compiler-plugin 的 -release 须为数字 8，不能写 1.8 -->
         <java.version>8</java.version>
         <spring-boot.version>2.7.18</spring-boot.version>
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -65,7 +61,6 @@
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
-        <!-- 正式版无 distributionManagement.repository；发 Central 须 -Pcentral-release。快照须 -Psnapshot-deploy -->
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
@@ -96,6 +91,11 @@
             <dependency>
                 <groupId>io.github.xtemplus</groupId>
                 <artifactId>plugin-security-maven</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.xtemplus</groupId>
+                <artifactId>system-plugin-sdk</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -200,8 +200,49 @@
                     <artifactId>maven-antrun-plugin</artifactId>
                     <version>${maven-antrun-plugin.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>io.github.xtemplus</groupId>
+                    <artifactId>plugin-security-maven</artifactId>
+                    <version>${project.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>1.6.0</version>
+                    <configuration>
+                        <updatePomFile>true</updatePomFile>
+                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>flatten</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>flatten.clean</id>
+                            <phase>clean</phase>
+                            <goals>
+                                <goal>clean</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>

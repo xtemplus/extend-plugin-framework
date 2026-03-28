@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.xtemplus</groupId>
+        <artifactId>extend-plugin-framework</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>plugin-example-case</artifactId>
+    <packaging>pom</packaging>
+
+    <name>plugin-example-case</name>
+    <description>示例 SDK、宿主与插件；版本随主工程 revision，默认不参与 deploy</description>
+
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <modules>
+        <module>system-plugin-sdk</module>
+        <module>system-base-project</module>
+        <module>plugin-example/system-plugin-sms-channel</module>
+        <module>plugin-example/system-plugin-demo-test1</module>
+    </modules>
+</project>
