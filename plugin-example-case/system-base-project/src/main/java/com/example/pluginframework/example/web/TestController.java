@@ -2,8 +2,8 @@ package com.example.pluginframework.example.web;
 
 
 import com.example.pluginframework.api.UserExtendPlugin;
-import com.plugin.framework.core.registry.ServiceRegistry;
-import com.plugin.framework.core.runtime.PluginContext;
+import io.github.extend.plugin.core.registry.ServiceRegistry;
+import io.github.extend.plugin.core.runtime.PluginContext;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 

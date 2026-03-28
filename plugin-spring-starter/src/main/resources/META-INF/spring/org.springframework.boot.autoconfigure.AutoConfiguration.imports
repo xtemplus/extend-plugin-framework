@@ -1,2 +1,2 @@
-com.plugin.framework.spring.config.PluginFrameworkAutoConfiguration
+io.github.extend.plugin.spring.config.PluginFrameworkAutoConfiguration
 

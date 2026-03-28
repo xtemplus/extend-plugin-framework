@@ -1,9 +1,9 @@
 package com.example.pluginframework.sms;
 
-import com.plugin.framework.core.registry.ExtensionRegistry;
-import com.plugin.framework.core.runtime.PluginContext;
-import com.plugin.framework.core.spi.ExtensionPoint;
-import com.plugin.framework.core.spi.Plugin;
+import io.github.extend.plugin.core.registry.ExtensionRegistry;
+import io.github.extend.plugin.core.runtime.PluginContext;
+import io.github.extend.plugin.core.spi.ExtensionPoint;
+import io.github.extend.plugin.core.spi.Plugin;
 import java.util.Map;
 
 /**

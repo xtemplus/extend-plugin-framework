@@ -11,8 +11,8 @@ import java.util.Properties;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-import com.plugin.framework.core.runtime.PluginMetadata;
-import com.plugin.framework.core.security.PluginSecurityUtil;
+import io.github.extend.plugin.core.runtime.PluginMetadata;
+import io.github.extend.plugin.core.security.PluginSecurityUtil;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
