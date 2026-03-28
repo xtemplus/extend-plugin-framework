@@ -4,6 +4,7 @@ import io.github.xtemplus.pluginframework.core.registry.ExtensionRegistry;
 import io.github.xtemplus.pluginframework.core.runtime.PluginContext;
 import io.github.xtemplus.pluginframework.core.spi.ExtensionPoint;
 import io.github.xtemplus.pluginframework.core.spi.Plugin;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -32,10 +33,11 @@ public final class SmsChannelPlugin implements Plugin {
 
                 @Override
                 public Map<String, Object> execute(Map<String, Object> context) {
-                    return Map.of(
-                            "channel", "sms",
-                            "label", "短信登录",
-                            "description", "VIP 用户可用");
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("channel", "sms");
+                    m.put("label", "短信登录");
+                    m.put("description", "VIP 用户可用");
+                    return m;
                 }
             };
 

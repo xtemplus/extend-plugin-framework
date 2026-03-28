@@ -5,6 +5,7 @@ import io.github.xtemplus.pluginframework.core.runtime.PluginContext;
 import io.github.xtemplus.pluginframework.core.spi.ExtensionPoint;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +42,8 @@ public class ChannelController {
     public List<Map<String, Object>> channels(
             @RequestParam(value = "isVip", defaultValue = "false") boolean isVip) {
         ExtensionRegistry registry = pluginContext.getExtensionRegistry();
-        Map<String, Object> context = Map.of("isVip", isVip);
+        Map<String, Object> context = new HashMap<>();
+        context.put("isVip", isVip);
         List<ExtensionPoint<?, ?>> extensions =
                 registry.getExtensions(POINT_USER_CHANNEL_AVAILABLE, context);
         if (extensions == null || extensions.isEmpty()) {

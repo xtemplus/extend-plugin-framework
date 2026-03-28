@@ -128,7 +128,8 @@ public final class PluginRegistryManager {
             return;
         }
         try {
-            String content = Files.readString(registryFile, StandardCharsets.UTF_8);
+            String content =
+                    new String(Files.readAllBytes(registryFile), StandardCharsets.UTF_8);
             if (content.isEmpty()) {
                 return;
             }
@@ -149,17 +150,33 @@ public final class PluginRegistryManager {
                     String field = fieldMatcher.group(1);
                     String value = unescapeJson(fieldMatcher.group(2));
                     switch (field) {
-                        case "pluginId" -> pluginId = value;
-                        case "pluginName" -> pluginName = value;
-                        case "version" -> version = value;
-                        case "jarFileName" -> jarFileName = value;
-                        case "checksumSha256" -> checksumSha256 = value;
-                        case "status" -> status = value;
-                        case "lastUpdateTime" -> timeStr = value;
-                        case "remarks" -> remarks = value;
-                        default -> {
+                        case "pluginId":
+                            pluginId = value;
+                            break;
+                        case "pluginName":
+                            pluginName = value;
+                            break;
+                        case "version":
+                            version = value;
+                            break;
+                        case "jarFileName":
+                            jarFileName = value;
+                            break;
+                        case "checksumSha256":
+                            checksumSha256 = value;
+                            break;
+                        case "status":
+                            status = value;
+                            break;
+                        case "lastUpdateTime":
+                            timeStr = value;
+                            break;
+                        case "remarks":
+                            remarks = value;
+                            break;
+                        default:
                             // 忽略未知字段
-                        }
+                            break;
                     }
                 }
                 if (pluginId == null
@@ -224,7 +241,9 @@ public final class PluginRegistryManager {
             if (parent != null && !Files.exists(parent)) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(registryFile, sb.toString(), StandardCharsets.UTF_8);
+            Files.write(
+                    registryFile,
+                    sb.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             LOGGER.log(
                     Level.WARNING,
@@ -265,14 +284,30 @@ public final class PluginRegistryManager {
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
             switch (c) {
-                case '\\' -> sb.append("\\\\");
-                case '"' -> sb.append("\\\"");
-                case '\b' -> sb.append("\\b");
-                case '\f' -> sb.append("\\f");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> sb.append(c);
+                case '\\':
+                    sb.append("\\\\");
+                    break;
+                case '"':
+                    sb.append("\\\"");
+                    break;
+                case '\b':
+                    sb.append("\\b");
+                    break;
+                case '\f':
+                    sb.append("\\f");
+                    break;
+                case '\n':
+                    sb.append("\\n");
+                    break;
+                case '\r':
+                    sb.append("\\r");
+                    break;
+                case '\t':
+                    sb.append("\\t");
+                    break;
+                default:
+                    sb.append(c);
+                    break;
             }
         }
         return sb.toString();
@@ -291,14 +326,30 @@ public final class PluginRegistryManager {
                 }
             } else {
                 switch (c) {
-                    case '\\' -> sb.append('\\');
-                    case '"' -> sb.append('"');
-                    case 'b' -> sb.append('\b');
-                    case 'f' -> sb.append('\f');
-                    case 'n' -> sb.append('\n');
-                    case 'r' -> sb.append('\r');
-                    case 't' -> sb.append('\t');
-                    default -> sb.append(c);
+                    case '\\':
+                        sb.append('\\');
+                        break;
+                    case '"':
+                        sb.append('"');
+                        break;
+                    case 'b':
+                        sb.append('\b');
+                        break;
+                    case 'f':
+                        sb.append('\f');
+                        break;
+                    case 'n':
+                        sb.append('\n');
+                        break;
+                    case 'r':
+                        sb.append('\r');
+                        break;
+                    case 't':
+                        sb.append('\t');
+                        break;
+                    default:
+                        sb.append(c);
+                        break;
                 }
                 escaping = false;
             }

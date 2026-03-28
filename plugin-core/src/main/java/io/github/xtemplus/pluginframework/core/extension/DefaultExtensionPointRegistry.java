@@ -1,6 +1,7 @@
 package io.github.xtemplus.pluginframework.core.extension;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +47,7 @@ public final class DefaultExtensionPointRegistry implements ExtensionPointRegist
     public List<ExtensionPointImplementation> getImplementations(String pointId) {
         List<ExtensionPointImplementation> list = implementationsByPointId.get(pointId);
         if (list == null || list.isEmpty()) {
-            return List.of();
+            return Collections.emptyList();
         }
         List<ExtensionPointImplementation> copy = new ArrayList<>(list);
         copy.sort(Comparator.comparingInt(ExtensionPointImplementation::getPriority));

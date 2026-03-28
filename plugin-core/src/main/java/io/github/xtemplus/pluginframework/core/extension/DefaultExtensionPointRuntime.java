@@ -2,18 +2,19 @@ package io.github.xtemplus.pluginframework.core.extension;
 
 import io.github.xtemplus.pluginframework.core.common.ExtensionImplType;
 import io.github.xtemplus.pluginframework.core.contract.SchemaValidator;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-
 import org.json.JSONObject;
 
 /**
@@ -26,27 +27,14 @@ import org.json.JSONObject;
 public final class DefaultExtensionPointRuntime implements ExtensionPointRuntime {
 
     private final ExtensionPointRegistry registry;
-    private final HttpClient httpClient;
 
     /**
-     * 使用默认的 {@link HttpClient} 构造。
+     * 构造默认运行时（HTTP 扩展点使用 {@link HttpURLConnection}）。
      *
      * @param registry 扩展点注册表
      */
     public DefaultExtensionPointRuntime(ExtensionPointRegistry registry) {
-        this(registry, HttpClient.newHttpClient());
-    }
-
-    /**
-     * 使用指定的 {@link HttpClient} 构造（便于 HTTP 扩展点使用自定义超时、连接池等）。
-     *
-     * @param registry 扩展点注册表
-     * @param httpClient HTTP 客户端，为 null 时使用默认
-     */
-    public DefaultExtensionPointRuntime(
-            ExtensionPointRegistry registry, HttpClient httpClient) {
         this.registry = Objects.requireNonNull(registry, "registry");
-        this.httpClient = httpClient != null ? httpClient : HttpClient.newHttpClient();
     }
 
     @Override
@@ -114,7 +102,7 @@ public final class DefaultExtensionPointRuntime implements ExtensionPointRuntime
             return executeBuiltin(pointId, impl, inputMap);
         }
         if (impl.getType() == ExtensionImplType.HTTP) {
-            return executeHttp(pointId, impl, inputMap);
+            return executeHttp(impl, inputMap);
         }
         return null;
     }
@@ -162,44 +150,59 @@ public final class DefaultExtensionPointRuntime implements ExtensionPointRuntime
         }
     }
 
-    private Object executeHttp(
-            String pointId,
-            ExtensionPointImplementation impl,
-            Map<String, Object> inputMap) throws Exception {
+    private Object executeHttp(ExtensionPointImplementation impl, Map<String, Object> inputMap)
+            throws Exception {
         String baseUrl = impl.getBaseUrl();
         if (baseUrl == null || baseUrl.isEmpty()) {
             throw new ExtensionPointRuntimeException(
                     "HTTP implementation missing baseUrl");
         }
         String body = mapToJson(inputMap);
-        HttpRequest request =
-                HttpRequest.newBuilder()
-                        .uri(URI.create(baseUrl))
-                        .header("Content-Type", "application/json; charset=UTF-8")
-                        .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                        .build();
-        HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new ExtensionPointRuntimeException(
-                    "HTTP extension point returned " + response.statusCode() + ": " + response.body());
+        URL url = new URL(baseUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        conn.setFixedLengthStreamingMode(bytes.length);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(bytes);
         }
-        String responseBody = response.body();
+        int code = conn.getResponseCode();
+        InputStream stream = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+        String responseBody = readUtf8Stream(stream);
+        if (code < 200 || code >= 300) {
+            throw new ExtensionPointRuntimeException(
+                    "HTTP extension point returned " + code + ": " + responseBody);
+        }
         if (responseBody == null || responseBody.isEmpty()) {
             return null;
         }
         return new JSONObject(responseBody).toMap();
     }
 
+    private static String readUtf8Stream(InputStream stream) throws java.io.IOException {
+        if (stream == null) {
+            return "";
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int r;
+        while ((r = stream.read(buf)) != -1) {
+            baos.write(buf, 0, r);
+        }
+        return baos.toString(StandardCharsets.UTF_8.name());
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> toMap(Object o) {
         if (o == null) {
-            return Map.of();
+            return Collections.emptyMap();
         }
         if (o instanceof Map) {
             return (Map<String, Object>) o;
         }
-        return Map.of();
+        return Collections.emptyMap();
     }
 
     private static String mapToJson(Map<String, Object> map) {

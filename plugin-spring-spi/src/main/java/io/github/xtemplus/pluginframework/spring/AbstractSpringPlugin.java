@@ -83,7 +83,10 @@ public abstract class AbstractSpringPlugin implements Plugin, SpringPlugin {
         if (basePackages != null && basePackages.length > 0) {
             return basePackages.clone();
         }
-        return new String[] {getClass().getPackageName()};
+        String className = getClass().getName();
+        int lastDot = className.lastIndexOf('.');
+        String packageName = lastDot > 0 ? className.substring(0, lastDot) : "";
+        return new String[] {packageName};
     }
 
     @Override

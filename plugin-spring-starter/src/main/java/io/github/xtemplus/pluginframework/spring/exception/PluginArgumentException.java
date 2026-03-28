@@ -1,6 +1,5 @@
 package io.github.xtemplus.pluginframework.spring.exception;
 
-import java.io.Serial;
 import java.util.Objects;
 
 /**
@@ -10,7 +9,6 @@ import java.util.Objects;
  */
 public class PluginArgumentException extends PluginFrameworkException {
 
-    @Serial
     private static final long serialVersionUID = 1L;
 
     /**

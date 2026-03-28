@@ -174,7 +174,9 @@ public class SpringPluginManager {
             return;
         }
         try (InputStream in = Files.newInputStream(file)) {
-            Map<String, Object> root = objectMapper.readValue(in, new TypeReference<>() {});
+            Map<String, Object> root =
+                    objectMapper.readValue(
+                            in, new TypeReference<Map<String, Object>>() {});
             @SuppressWarnings("unchecked")
             List<Map<String, String>> entries = (List<Map<String, String>>) root.get("entries");
             if (entries == null) {

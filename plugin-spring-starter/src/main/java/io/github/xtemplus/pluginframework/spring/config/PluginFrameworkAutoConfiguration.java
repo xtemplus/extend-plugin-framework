@@ -12,12 +12,12 @@ import java.util.Locale;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
@@ -32,7 +32,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  *   <li>应用启动后自动扫描 {@code plugins/} 目录并加载插件的 CommandLineRunner（可通过配置关闭）
  * </ul>
  */
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(PluginFrameworkProperties.class)
 public class PluginFrameworkAutoConfiguration {
 

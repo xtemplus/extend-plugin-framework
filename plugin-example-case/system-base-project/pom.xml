@@ -6,18 +6,18 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>2.7.18</version>
         <relativePath/>
     </parent>
 
     <groupId>io.github.xtemplus</groupId>
     <artifactId>system-base-project</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>system-base-project</name>
     <description>Example host application that loads plugins</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>1.8</java.version>
     </properties>
 
     <dependencies>
@@ -34,12 +34,12 @@
         <dependency>
             <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-spring-starter</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
+            <version>0.1.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.xtemplus</groupId>
             <artifactId>system-plugin-sdk</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
+            <version>0.1.0</version>
         </dependency>
     </dependencies>
 

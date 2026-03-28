@@ -53,7 +53,7 @@ public final class PluginMetadata {
         this.scanPackages = scanPackages == null ? new String[0] : scanPackages.clone();
         this.declaredExtensionPoints =
                 declaredExtensionPoints == null
-                        ? List.of()
+                        ? Collections.<DeclaredExtensionPoint>emptyList()
                         : Collections.unmodifiableList(new ArrayList<>(declaredExtensionPoints));
     }
 

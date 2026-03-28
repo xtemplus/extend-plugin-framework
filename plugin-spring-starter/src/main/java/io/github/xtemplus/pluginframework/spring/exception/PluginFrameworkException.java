@@ -1,7 +1,5 @@
 package io.github.xtemplus.pluginframework.spring.exception;
 
-import java.io.Serial;
-
 /**
  * 插件框架运行时异常基类，用于上传、卸载、停用等操作失败时抛出。
  *
@@ -11,7 +9,6 @@ import java.io.Serial;
  */
 public class PluginFrameworkException extends RuntimeException {
 
-    @Serial
     private static final long serialVersionUID = 1L;
 
     /**

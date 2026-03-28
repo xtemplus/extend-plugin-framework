@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF8"?>
+<!--
+  可选：复制为 %USERPROFILE%\.m2\toolchains.xml，在「本机 Maven 使用较新 JDK、但需固定用 JDK8 编译」时使用
+  maven-toolchains-plugin（需自行在 POM 中配置）。当前工程默认以 java.version=1.8 编译，一般只需让 JAVA_HOME 指向 JDK8。
+-->
+<toolchains xmlns="http://maven.apache.org/TOOLCHAINS/1.1.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/TOOLCHAINS/1.1.0 https://maven.apache.org/xsd/toolchains-1.1.0.xsd">
+    <toolchain>
+        <type>jdk</type>
+        <provides>
+            <version>1.8</version>
+        </provides>
+        <configuration>
+            <jdkHome>REPLACE_WITH_YOUR_JDK8_HOME</jdkHome>
+        </configuration>
+    </toolchain>
+</toolchains>
