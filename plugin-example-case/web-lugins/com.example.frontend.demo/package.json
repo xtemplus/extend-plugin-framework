@@ -1,0 +1,20 @@
+{
+  "name": "web-plugin-com-example-frontend-demo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:watch": "vite build --watch",
+    "validate:manifest": "web-fp-kit validate manifest.json",
+    "pack": "npm run validate:manifest && npm run build && web-fp-kit pack"
+  },
+  "devDependencies": {
+    "web-extend-plugin-build-kit": "^0.1.0",
+    "@vitejs/plugin-vue2": "^2.3.1",
+    "vite": "^5.4.11",
+    "vite-plugin-css-injected-by-js": "^4.0.1",
+    "vue": "^2.7.16"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "web-extend-plugin-vue2",
+  "version": "0.1.3",
+  "description": "Vue 2.7 host runtime for web-extend-plugin: manifest bootstrap, hostApi, registries, ExtensionPoint",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "peerDependencies": {
+    "vue": "^2.7.0",
+    "vue-router": "^3.6.0"
+  },
+  "dependencies": {
+    "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9",
+    "vue": "^2.7.16",
+    "vue-router": "^3.6.5"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xtemplus/extend-plugin-framework.git",
+    "directory": "web-extend-plugin-vue2"
+  },
+  "keywords": [
+    "vue2",
+    "plugin",
+    "extension"
+  ]
+}

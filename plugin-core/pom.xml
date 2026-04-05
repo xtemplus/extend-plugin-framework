@@ -15,6 +15,13 @@
     <packaging>jar</packaging>
 
     <name>plugin-core</name>
+    <description>可扩展插件框架核心：加载、扩展点、校验与 fat jar 可选打包</description>
+
+    <scm>
+        <connection>scm:git:https://github.com/xtemplus/extend-plugin-framework.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/xtemplus/extend-plugin-framework.git</developerConnection>
+        <url>https://github.com/xtemplus/extend-plugin-framework</url>
+    </scm>
 
     <!--
       everit / org.json 为 optional：打 fat jar 后不再向宿主传递，避免与 shade 后的类重复。
@@ -24,11 +31,13 @@
         <dependency>
             <groupId>org.everit.json</groupId>
             <artifactId>org.everit.json.schema</artifactId>
+            <version>1.5.1</version>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
+            <version>20240303</version>
             <optional>true</optional>
         </dependency>
     </dependencies>
@@ -153,10 +162,28 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>

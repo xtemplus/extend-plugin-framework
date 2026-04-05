@@ -1,0 +1,14 @@
+{
+  "id": "com.example.frontend.demo",
+  "version": "1.0.0",
+  "name": "Demo Frontend Plugin",
+  "priority": 10,
+  "entry": "dist/main.js",
+  "engines": { "host": ">=1.0.0 <2.0.0" },
+  "contributions": {
+    "menu": true,
+    "routes": true,
+    "slots": true,
+    "assetInjection": true
+  }
+}

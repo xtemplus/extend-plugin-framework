@@ -11,10 +11,11 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>plugin-spring-spi</artifactId>
+    <artifactId>plugin-web-starter</artifactId>
     <packaging>jar</packaging>
 
-    <name>plugin-spring-spi</name>
+    <name>plugin-web-starter</name>
+    <description>Spring SDK: web frontend plugin manifest aggregation for host applications</description>
 
     <scm>
         <connection>scm:git:https://github.com/xtemplus/extend-plugin-framework.git</connection>
@@ -23,14 +24,23 @@
     </scm>
 
     <dependencies>
+        <!-- 不用 starter-web：避免把内嵌 Tomcat 作为传递依赖带给宿主；宿主已用 Boot Web 时由宿主提供 Servlet 运行时 -->
         <dependency>
-            <groupId>io.github.xtemplus</groupId>
-            <artifactId>plugin-core</artifactId>
-            <version>${revision}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
+            <artifactId>spring-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
     </dependencies>
@@ -40,6 +50,15 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                            <version>${spring-boot.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

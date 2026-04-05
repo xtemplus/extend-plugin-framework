@@ -15,15 +15,24 @@
     <packaging>jar</packaging>
 
     <name>plugin-spring-starter</name>
+    <description>Spring Boot 自动配置：Java 插件运行时（加载、MVC 注册等）</description>
+
+    <scm>
+        <connection>scm:git:https://github.com/xtemplus/extend-plugin-framework.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/xtemplus/extend-plugin-framework.git</developerConnection>
+        <url>https://github.com/xtemplus/extend-plugin-framework</url>
+    </scm>
 
     <dependencies>
         <dependency>
             <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-spring-spi</artifactId>
+            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-core</artifactId>
+            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -65,10 +74,28 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>

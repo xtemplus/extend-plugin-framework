@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://extend-plugin-framework.local/schemas/frontend-plugin-manifest.json",
+  "title": "Frontend plugin manifest",
+  "description": "Aligned with plugin-web-starter parseManifest and SPEC §3.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["id", "entry"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique plugin id; must match window.__PLUGIN_ACTIVATORS__[id]"
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Entry path relative to plugin bundle root (e.g. dist/main.js)"
+    },
+    "version": { "type": "string" },
+    "name": { "type": "string" },
+    "priority": { "type": "integer" },
+    "backendPluginId": { "type": "string" },
+    "engines": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "host": { "type": "string" }
+      }
+    },
+    "styles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "contributions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

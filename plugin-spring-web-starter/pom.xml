@@ -11,10 +11,11 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>plugin-spring-spi</artifactId>
+    <artifactId>plugin-spring-web-starter</artifactId>
     <packaging>jar</packaging>
 
-    <name>plugin-spring-spi</name>
+    <name>plugin-spring-web-starter</name>
+    <description>聚合 starter：Java 插件（plugin-spring-starter）+ Web 扩展清单（plugin-web-starter），面向 Spring Boot + Web 前端一体化交付</description>
 
     <scm>
         <connection>scm:git:https://github.com/xtemplus/extend-plugin-framework.git</connection>
@@ -25,13 +26,13 @@
     <dependencies>
         <dependency>
             <groupId>io.github.xtemplus</groupId>
-            <artifactId>plugin-core</artifactId>
+            <artifactId>plugin-spring-starter</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <optional>true</optional>
+            <groupId>io.github.xtemplus</groupId>
+            <artifactId>plugin-web-starter</artifactId>
+            <version>${revision}</version>
         </dependency>
     </dependencies>
 

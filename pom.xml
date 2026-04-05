@@ -37,6 +37,8 @@
         <module>plugin-core</module>
         <module>plugin-spring-spi</module>
         <module>plugin-spring-starter</module>
+        <module>plugin-web-starter</module>
+        <module>plugin-spring-web-starter</module>
         <module>plugin-security-maven</module>
     </modules>
 
@@ -48,11 +50,15 @@
     </distributionManagement>
 
     <properties>
-        <!-- 全仓库版本唯一入口 执行 mvn clean deploy -Pcentral-release 进行部署-->
-        <revision>0.2.0</revision>
+        <!-- 全仓库版本唯一入口；子模块依赖本仓库构件时用 ${project.version}（与 revision 一致） -->
+        <revision>0.2.1</revision>
+        <xtemplus.groupId>io.github.xtemplus</xtemplus.groupId>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>8</java.version>
         <spring-boot.version>2.7.18</spring-boot.version>
+        <!-- 与 plugin-core optional 依赖及 dependencyManagement 对齐 -->
+        <everit-json-schema.version>1.5.1</everit-json-schema.version>
+        <org-json.version>20240303</org-json.version>
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
@@ -61,6 +67,7 @@
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
@@ -73,40 +80,53 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <!-- 本仓库模块：版本统一为 ${project.version}，子模块省略 <version> 即可 -->
             <dependency>
-                <groupId>io.github.xtemplus</groupId>
+                <groupId>${xtemplus.groupId}</groupId>
                 <artifactId>plugin-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.xtemplus</groupId>
+                <groupId>${xtemplus.groupId}</groupId>
                 <artifactId>plugin-spring-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.xtemplus</groupId>
+                <groupId>${xtemplus.groupId}</groupId>
                 <artifactId>plugin-spring-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.xtemplus</groupId>
+                <groupId>${xtemplus.groupId}</groupId>
+                <artifactId>plugin-web-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${xtemplus.groupId}</groupId>
+                <artifactId>plugin-spring-web-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${xtemplus.groupId}</groupId>
                 <artifactId>plugin-security-maven</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.xtemplus</groupId>
+                <groupId>${xtemplus.groupId}</groupId>
                 <artifactId>system-plugin-sdk</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>org.everit.json</groupId>
                 <artifactId>org.everit.json.schema</artifactId>
-                <version>1.5.1</version>
+                <version>${everit-json-schema.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.json</groupId>
                 <artifactId>json</artifactId>
-                <version>20240303</version>
+                <version>${org-json.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -142,7 +162,7 @@
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>${maven-javadoc-plugin.version}</version>
                     <configuration>
-                        <source>1.8</source>
+                        <source>${java.version}</source>
                         <additionalOptions>
                             <additionalOption>-Xdoclint:none</additionalOption>
                         </additionalOptions>
@@ -206,17 +226,18 @@
                     <version>${spring-boot.version}</version>
                 </plugin>
                 <plugin>
-                    <groupId>io.github.xtemplus</groupId>
+                    <groupId>${xtemplus.groupId}</groupId>
                     <artifactId>plugin-security-maven</artifactId>
                     <version>${project.version}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>flatten-maven-plugin</artifactId>
-                    <version>1.6.0</version>
+                    <version>${flatten-maven-plugin.version}</version>
                     <configuration>
                         <updatePomFile>true</updatePomFile>
-                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                        <!-- oss：发布用 POM 中依赖版本等会展开，避免 ${revision} 留在 &lt;dependency&gt; 里导致 Central 校验失败（见 flatten #120） -->
+                        <flattenMode>oss</flattenMode>
                     </configuration>
                     <executions>
                         <execution>
@@ -253,12 +274,10 @@
                 <maven.deploy.skip>false</maven.deploy.skip>
             </properties>
         </profile>
-        <!-- 正式版发 Central：GPG + central-publishing（deploy 插件仍跳过，由 publishing 上传） -->
+        <!-- 正式版发 Central：聚合 POM（packaging=pom）需上传，否则子模块 flatten 后引用的 parent 在 Central 上无法解析。
+             packaging=pom 不要求 -sources / -javadoc；子模块仍各自带 source/javadoc/gpg/上传。 -->
         <profile>
             <id>central-release</id>
-            <properties>
-                <maven.deploy.skip>true</maven.deploy.skip>
-            </properties>
             <build>
                 <plugins>
                     <plugin>

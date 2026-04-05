@@ -1,0 +1,47 @@
+# =============================================================================
+# 本文件仅供复制到「宿主工程」的 application.yml（或 import），文件名刻意不是 application.yml，
+# 因此打进 SDK JAR 后不会被 Spring Boot 自动加载，避免与宿主 server.port、数据源等配置合并冲突。
+# 路径：classpath:META-INF/example/web-plugin-application.example.yml
+# =============================================================================
+
+web-plugin:
+  # 磁盘上 Web 插件根目录（相对 JVM user.dir 或绝对路径）
+  web-plugins-dir: plugin-example-case/plugins/web
+  web-plugins-dir-resolution-fallback: plugin-example-case/plugins/web
+
+  # 对外 URL 与静态资源映射前缀（无尾部斜杠）
+  plugins-web-path-prefix: /plugins/web
+
+  # 解析插件根目录时，相对 user.dir / 父目录 / 向上遍历所尝试的相对路径（有序，先命中者胜出）
+  path-resolution-candidate-relative-paths:
+    - plugin-example-case/plugins/web
+    - plugins/web
+
+  manifest-file-name: manifest.json
+  disabled-state-file-name: plugin-disabled.json
+
+  # 若使用 WebPluginWebRegistration.registerListApiCors，需与宿主暴露清单 API 的路径一致
+  list-plugins-api-path: /api/frontend-plugins
+
+  host-plugin-api-version: "1.0.0"
+
+  # 非空时，生成 entryUrl / 样式 URL 时固定使用该前缀，忽略请求推导（网关/HTTPS 终止时常用）
+  public-base-url: ""
+
+  # entryUrl 与样式 URL 的 host 必须在此列表中（完全匹配，不区分大小写）
+  entry-url-host-allowlist:
+    - localhost
+    - 127.0.0.1
+    - ::1
+
+  max-plugins: 50
+  max-plugins-min: 1
+  max-plugins-max: 10000
+
+  # 可选：主应用工作目录；非空时读取 main-app-plugins-subdir 下的 disabled-state-file-name
+  main-app-workdir: ""
+  main-app-plugins-subdir: plugins
+
+  # 与 list-plugins-api-path 配合的 CORS；宿主不用 registerListApiCors 时可忽略
+  cors-allowed-origins:
+    - "*"
