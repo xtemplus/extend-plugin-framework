@@ -16,7 +16,7 @@
 mvn clean package
 ```
 
-将 `target/system-plugin-sms-channel-0.0.1-SNAPSHOT.jar` 放入宿主 **plugins/** 目录（或通过管理台上传），重启或刷新插件后：
+将 `target/system-plugin-sms-channel-<version>.jar`（版本与父 POM `revision` 一致）放入宿主 **plugins/** 目录（或通过管理台上传），重启或刷新插件后：
 
 - 访问 **GET /api/channels?isVip=true** → 返回包含 `{"channel":"sms","label":"短信登录",...}` 的列表
 - 访问 **GET /api/channels?isVip=false** → 不包含短信通道（本插件 supports 返回 false）

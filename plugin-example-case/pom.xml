@@ -15,7 +15,7 @@
     <packaging>pom</packaging>
 
     <name>plugin-example-case</name>
-    <description>示例 SDK、宿主与插件；版本随主工程 revision，默认不参与 deploy</description>
+    <description>示例 SDK、宿主与插件；版本随主工程 ${revision}，与已发布 Maven Central 的框架构件同版本对齐；默认不参与 deploy</description>
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>

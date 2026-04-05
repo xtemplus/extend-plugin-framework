@@ -21,7 +21,6 @@
         <dependency>
             <groupId>io.github.xtemplus</groupId>
             <artifactId>plugin-spring-spi</artifactId>
-            <version>0.2.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.xtemplus</groupId>
