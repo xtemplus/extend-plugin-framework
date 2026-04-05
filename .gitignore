@@ -59,3 +59,4 @@ plugins/
 # 勿提交 Maven 凭据、插件安全密钥等到远程仓库（GPG 私钥勿复制进项目目录）
 maven-central-settings.local.xml
 **/plugin-security.properties
+**/.flattened-pom.xml
