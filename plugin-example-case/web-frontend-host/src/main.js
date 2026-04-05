@@ -1,7 +1,7 @@
 import Vue from 'vue'
 import App from './App.vue'
 import { router } from './router'
-import { bootstrapPlugins, createHostApi, resolveRuntimeOptions } from 'web-extend-plugin-vue2'
+import { bootstrapPlugins, createHostApi, resolveRuntimeOptions } from '@extend-plugin-framework/web-extend-plugin-vue2'
 
 window.Vue = Vue
 

@@ -28,7 +28,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.xtemplus</groupId>
-            <artifactId>plugin-spring-starter</artifactId>
+            <artifactId>plugin-spring-web-starter</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.xtemplus</groupId>

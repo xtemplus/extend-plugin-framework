@@ -1,29 +1,39 @@
 {
   "name": "web-extend-plugin-vue2",
-  "version": "0.1.3",
-  "description": "Vue 2.7 host runtime for web-extend-plugin: manifest bootstrap, hostApi, registries, ExtensionPoint",
+  "version": "0.2.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Vue 2 host runtime for web-extend-plugin: manifest bootstrap, hostApi, registries, ExtensionPoint",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./dist/index.cjs",
   "exports": {
-    ".": "./src/index.js"
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.cjs"
+    }
   },
   "files": [
-    "src"
+    "dist"
   ],
   "peerDependencies": {
-    "vue": "^2.7.0",
-    "vue-router": "^3.6.0"
+    "vue": ">=2.6.14 <3.0.0",
+    "vue-router": ">=3.2.0 <4.0.0"
   },
   "dependencies": {
     "semver": "^7.6.3"
   },
   "devDependencies": {
-    "vitest": "^2.1.9",
-    "vue": "^2.7.16",
-    "vue-router": "^3.6.5"
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "rollup": "^4.28.0",
+    "vitest": "^2.1.9"
   },
   "scripts": {
-    "test": "vitest run"
+    "build": "rollup -c rollup.config.mjs",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "license": "Apache-2.0",
   "repository": {

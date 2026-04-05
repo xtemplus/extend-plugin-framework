@@ -1,0 +1,3 @@
+# 与 WebPluginProperties / FrontendPluginsController 对齐：清单路径与 CORS 映射
+web-plugin:
+  list-plugins-api-path: /frontend-plugins

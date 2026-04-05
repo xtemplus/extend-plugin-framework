@@ -118,7 +118,9 @@ export function createHostApi(pluginId, router, hostKitOptions = {}) {
       for (const item of items) {
         registries.menus.push({ ...item, pluginId })
       }
-      registries.menus.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      registries.menus.sort(
+        (a, b) => (a.order != null ? a.order : 0) - (b.order != null ? b.order : 0)
+      )
     },
 
     /**
@@ -138,7 +140,7 @@ export function createHostApi(pluginId, router, hostKitOptions = {}) {
         list.push({
           pluginId,
           component: c.component,
-          priority: c.priority ?? 0,
+          priority: c.priority != null ? c.priority : 0,
           key: `${pluginId}-${pointId}-${++slotItemKeySeq}`
         })
       }

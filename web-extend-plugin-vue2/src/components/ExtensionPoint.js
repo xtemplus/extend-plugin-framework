@@ -1,19 +1,6 @@
-<template>
-  <div class="extension-point" :data-point-id="pointId">
-    <SlotErrorBoundary
-      v-for="item in items"
-      :key="item.key"
-      :label="item.pluginId"
-    >
-      <component :is="item.component" v-bind="forwardProps" />
-    </SlotErrorBoundary>
-  </div>
-</template>
-
-<script>
 /**
  * 在宿主布局中声明扩展点；插件通过 `hostApi.registerSlotComponents(pointId, ...)` 注入组件。
- * 使用 `Vue.observable` 注册表驱动重渲染；子树错误由边界组件捕获，避免拖垮整页。
+ * 使用纯 render 函数，便于 Rollup 发布 dist，宿主无需再转译 .vue。
  */
 import { registries } from '../registries.js'
 
@@ -56,12 +43,25 @@ export default {
     forwardProps() {
       return this.slotProps || {}
     }
+  },
+  render(h) {
+    return h(
+      'div',
+      {
+        class: 'extension-point',
+        style: { minHeight: '8px' },
+        attrs: { 'data-point-id': this.pointId }
+      },
+      this.items.map((item) =>
+        h(
+          SlotErrorBoundary,
+          {
+            key: item.key,
+            props: { label: item.pluginId }
+          },
+          [h(item.component, { props: this.forwardProps })]
+        )
+      )
+    )
   }
 }
-</script>
-
-<style scoped>
-.extension-point {
-  min-height: 8px;
-}
-</style>

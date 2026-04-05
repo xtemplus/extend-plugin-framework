@@ -2,11 +2,13 @@
  * 宿主侧插件引导：拉取清单、dev 映射、加载入口脚本、调用 activator。
  * 路径与白名单等默认值见 `defaultWebExtendPluginRuntime`，可通过 `resolveRuntimeOptions` / 环境变量覆盖。
  *
- * **Webpack 宿主**：无 `import.meta.env` 时，用 `DefinePlugin` 注入 `process.env.VITE_*` 或 **`PLUGIN_*`**（等价键）或传入第三参。
+ * **Webpack 宿主**：用 `DefinePlugin` 注入 `process.env.VITE_*` 或 **`PLUGIN_*`**（等价键），或 `resolveRuntimeOptions` 显式传参。
+ * **Vite 宿主**：入口调用 `setWebExtendPluginEnv(import.meta.env)`，或 `installWebExtendPluginVue2(..., { env: import.meta.env })`。
  *
  * @module PluginRuntime
  */
-import { coerce, satisfies } from 'semver'
+import semver from 'semver'
+import { readInjectedEnvDev, readInjectedEnvKey } from './bundled-env.js'
 import { HOST_PLUGIN_API_VERSION } from './constants.js'
 import { defaultWebExtendPluginRuntime } from './default-runtime-config.js'
 
@@ -30,23 +32,6 @@ const DEF = defaultWebExtendPluginRuntime
  * @property {string[]} [bridgeAllowedPathPrefixes] bridge.request 白名单前缀
  * @property {boolean} [bootstrapSummary] bootstrap 结束是否打印摘要
  */
-
-/**
- * 从 Vite 注入的 `import.meta.env` 读取字符串配置。
- * @param {string} key
- * @returns {string|undefined}
- */
-function readImportMetaEnv(key) {
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      const v = import.meta.env[key]
-      if (v !== undefined && v !== '') {
-        return String(v)
-      }
-    }
-  } catch (_) {}
-  return undefined
-}
 
 /**
  * 从 Webpack `DefinePlugin` 等注入的 `process.env` 读取。
@@ -79,17 +64,20 @@ function viteKeyToPluginAlternate(viteStyleKey) {
 }
 
 /**
- * 先读 `VITE_*`，再读对应的 `PLUGIN_*`，再 `process.env`，最后 `fallback`。
+ * 先读注入环境（`setWebExtendPluginEnv` / `__WEP_ENV__`）中的 `VITE_*` 与并列 `PLUGIN_*`，再读 `process.env`，最后 `fallback`。
  * @param {string} key 仍以 `VITE_*` 为逻辑名（与文档一致）
  * @param {string} [fallback='']
  */
 function resolveBundledEnv(key, fallback = '') {
   const alt = viteKeyToPluginAlternate(key)
-  const fromMeta =
-    readImportMetaEnv(key) ?? (alt ? readImportMetaEnv(alt) : undefined)
+  const inj = readInjectedEnvKey(key)
+  const fromInjected =
+    inj === undefined || inj === null ? (alt ? readInjectedEnvKey(alt) : undefined) : inj
+  const proc = readProcessEnv(key)
   const fromProcess =
-    readProcessEnv(key) ?? (alt ? readProcessEnv(alt) : undefined)
-  return fromMeta ?? fromProcess ?? fallback
+    proc === undefined || proc === null ? (alt ? readProcessEnv(alt) : undefined) : proc
+  const first = fromInjected === undefined || fromInjected === null ? fromProcess : fromInjected
+  return first === undefined || first === null ? fallback : first
 }
 
 /**
@@ -97,7 +85,7 @@ function resolveBundledEnv(key, fallback = '') {
  */
 function resolveBundledIsDev() {
   try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV === true) {
+    if (readInjectedEnvDev()) {
       return true
     }
   } catch (_) {}
@@ -659,10 +647,10 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
 
   const apiVer = data.hostPluginApiVersion
   if (apiVer) {
-    const coerced = coerce(apiVer)
+    const coerced = semver.coerce(apiVer)
     const maj = coerced ? coerced.major : 0
     const range = `^${maj}.0.0`
-    if (!satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
+    if (!semver.satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
       console.warn(
         '[plugins] host API version mismatch: host implements',
         HOST_PLUGIN_API_VERSION,
@@ -694,7 +682,7 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
 
   for (const p of plugins) {
     const range = p.engines && p.engines.host
-    if (range && !satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
+    if (range && !semver.satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
       console.warn('[plugins] skip (engines.host)', p.id, range)
       summary.skipEngines++
       continue
