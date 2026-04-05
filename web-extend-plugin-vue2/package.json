@@ -1,21 +1,24 @@
 {
   "name": "web-extend-plugin-vue2",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publishConfig": {
     "access": "public"
   },
   "description": "Vue 2 host runtime for web-extend-plugin: manifest bootstrap, hostApi, registries, ExtensionPoint",
   "type": "module",
   "main": "./dist/index.cjs",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
       "default": "./dist/index.cjs"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "index.d.ts"
   ],
   "peerDependencies": {
     "vue": ">=2.6.14 <3.0.0",

@@ -5,17 +5,7 @@
  * @module bridge
  */
 import { defaultWebExtendPluginRuntime } from './default-runtime-config.js'
-
-/**
- * @param {string} p
- */
-function ensureLeadingSlash(p) {
-  const t = String(p || '').trim()
-  if (!t) {
-    return '/'
-  }
-  return t.startsWith('/') ? t : `/${t}`
-}
+import { ensureLeadingPath } from './runtime/path-host-utils.js'
 
 /**
  * @param {{ allowedPathPrefixes?: string[] }} [config]
@@ -25,7 +15,7 @@ export function createRequestBridge(config = {}) {
     Array.isArray(config.allowedPathPrefixes) && config.allowedPathPrefixes.length > 0
       ? config.allowedPathPrefixes
       : defaultWebExtendPluginRuntime.bridgeAllowedPathPrefixes
-  const allowedPathPrefixes = raw.map((p) => ensureLeadingSlash(p))
+  const allowedPathPrefixes = raw.map((p) => ensureLeadingPath(p))
 
   return {
     /**

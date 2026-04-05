@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { setWebExtendPluginEnv } from './bundled-env.js'
-import { resolveRuntimeOptions } from './PluginRuntime.js'
+import { setWebExtendPluginEnv } from '../src/bundled-env.js'
+import { resolveRuntimeOptions } from '../src/PluginRuntime.js'
 
 describe('bundled-env + resolveRuntimeOptions', () => {
   beforeEach(() => {
