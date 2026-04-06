@@ -1,19 +1,15 @@
 /**
- * 一键接入：注册 `ExtensionPoint` 并执行 `bootstrapPlugins`。
- * @module install
+ * 注册全局 `ExtensionPoint` 并异步拉取清单、激活插件。
  */
 import ExtensionPoint from './components/ExtensionPoint.js'
-import { createHostApi } from './createHostApi.js'
-import { bootstrapPlugins, resolveRuntimeOptions } from './PluginRuntime.js'
-import { setWebExtendPluginEnv } from './bundled-env.js'
+import { createHostApi } from './create-host-api.js'
+import { bootstrapPlugins, resolveRuntimeOptions } from './plugin-runtime.js'
+import { setWebExtendPluginEnv } from './build-env.js'
 
 /**
- * 注册全局组件 `ExtensionPoint` 并异步引导插件清单。
- *
  * @param {*} Vue
- * @param {*} router  vue-router 实例
- * @param {Record<string, unknown>} [options] 传给 `resolveRuntimeOptions` 的字段；可含 `env`（Vite 传入 `import.meta.env`）以读取 `VITE_*`。
- * @returns {Promise<void>}
+ * @param {*} router
+ * @param {Record<string, unknown>} [options] 传给 `resolveRuntimeOptions`；可含 `env` 以读取 `VITE_*`
  */
 export function installWebExtendPluginVue2(Vue, router, options) {
   const opts = options || {}

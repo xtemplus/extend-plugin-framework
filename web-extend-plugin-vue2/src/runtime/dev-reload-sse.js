@@ -62,10 +62,10 @@ function startPluginDevReloadSse(origin, isDev, hostSet, ssePath) {
       window.location.reload()
     })
     es.onopen = () => {
-      console.info('[plugins] plugin dev reload SSE:', url)
+      console.info('[wep] dev reload SSE', url)
     }
   } catch (e) {
-    console.warn('[plugins] EventSource failed', url, e)
+    console.warn('[wep] EventSource failed', url, e)
   }
 }
 

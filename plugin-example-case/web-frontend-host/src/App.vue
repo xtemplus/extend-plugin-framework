@@ -21,7 +21,7 @@
 </template>
 
 <script>
-import { registries } from 'web-extend-plugin-vue2'
+import { registries } from '@extend-plugin-framework/web-extend-plugin-vue2'
 
 export default {
   name: 'App',

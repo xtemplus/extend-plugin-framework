@@ -1,32 +1,6 @@
 /**
- * 默认清单 HTTP 拉取（未配置 `fetchManifest` 时）。
- * @module runtime/default-fetch-manifest
- */
-
-/**
- * @typedef {object} FetchWebPluginManifestContext
- * @property {string} manifestUrl
- * @property {RequestCredentials} credentials
- */
-
-/**
- * @typedef {object} FetchWebPluginManifestResult
- * @property {boolean} ok
- * @property {number} [status]
- * @property {{ hostPluginApiVersion?: string, plugins?: object[] }|null} [data]
- * @property {unknown} [error]
- */
-
-/**
- * @callback FetchWebPluginManifestFn
- * @param {FetchWebPluginManifestContext} ctx
- * @returns {Promise<FetchWebPluginManifestResult>}
- */
-
-/**
- * 默认清单请求（未配置 `fetchManifest` 时）。
- * @param {FetchWebPluginManifestContext} ctx
- * @returns {Promise<FetchWebPluginManifestResult>}
+ * 未配置 `fetchManifest` 时使用的清单 `fetch` 实现。
+ * @param {{ manifestUrl: string, credentials: RequestCredentials }} ctx
  */
 export async function defaultFetchWebPluginManifest(ctx) {
   const { manifestUrl, credentials } = ctx

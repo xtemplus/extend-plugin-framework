@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createRequestBridge } from '../src/bridge.js'
+import { createRequestBridge } from '../src/request-bridge.js'
 
 describe('createRequestBridge', () => {
   const originalFetch = globalThis.fetch

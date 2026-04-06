@@ -1,8 +1,5 @@
 /**
- * 插件通过宿主访问后端的受控通道：仅允许配置的前缀路径，默认 `/api/`；强制默认 `same-origin` 携带 Cookie。
- * 前缀列表由 `createRequestBridge({ allowedPathPrefixes })` 传入，与 `defaultWebExtendPluginRuntime.bridgeAllowedPathPrefixes` 对齐。
- *
- * @module bridge
+ * 插件访问后端的受控通道：`fetch` 仅允许落在配置的路径前缀下（默认 `/api/`），默认 `credentials: 'same-origin'`。
  */
 import { defaultWebExtendPluginRuntime } from './default-runtime-config.js'
 import { ensureLeadingPath } from './runtime/path-host-utils.js'
@@ -19,17 +16,16 @@ export function createRequestBridge(config = {}) {
 
   return {
     /**
-     * 发起受控 `fetch`。
-     * @param {string} path 必须以 `/` 开头，且匹配某一 `allowedPathPrefixes` 前缀
-     * @param {RequestInit} [init] 会与默认 `{ credentials: 'same-origin' }` 合并（后者可被覆盖）
+     * @param {string} path 必须以 `/` 开头，且匹配某一白名单前缀
+     * @param {RequestInit} [init]
      */
     async request(path, init = {}) {
       if (typeof path !== 'string' || !path.startsWith('/')) {
-        throw new Error('[bridge] path must be a string starting with /')
+        throw new Error('[wep:bridge] path must start with /')
       }
       const allowed = allowedPathPrefixes.some((p) => path.startsWith(p))
       if (!allowed) {
-        throw new Error('[bridge] path not allowed: ' + path)
+        throw new Error('[wep:bridge] path not allowed: ' + path)
       }
       return fetch(path, {
         credentials: 'same-origin',

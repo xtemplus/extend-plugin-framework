@@ -1,8 +1,7 @@
 /**
- * 在宿主布局中声明扩展点；插件通过 `hostApi.registerSlotComponents(pointId, ...)` 注入组件。
- * 使用纯 render 函数，便于 Rollup 发布 dist，宿主无需再转译 .vue。
+ * 布局中的扩展点占位；插件通过 `hostApi.registerSlotComponents(pointId, ...)` 注入组件。
  */
-import { registries } from '../registries.js'
+import { registries } from '../plugin-registries.js'
 
 const SlotErrorBoundary = {
   name: 'SlotErrorBoundary',
@@ -12,7 +11,7 @@ const SlotErrorBoundary = {
   },
   errorCaptured(err) {
     this.error = err && err.message ? err.message : String(err)
-    console.error('[ExtensionPoint] render error in', this.label, err)
+    console.error('[wep:ExtensionPoint]', this.label, err)
     return false
   },
   render(h) {

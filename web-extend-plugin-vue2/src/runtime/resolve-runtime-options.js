@@ -21,6 +21,10 @@
  * @property {string[]} [bridgeAllowedPathPrefixes]
  * @property {boolean} [bootstrapSummary]
  * @property {(ctx: { manifestUrl: string, credentials: RequestCredentials }) => Promise<{ ok: boolean, status?: number, data?: unknown, error?: unknown }>} [fetchManifest]
+ * @property {string} [pluginRoutesParentName] 已存在的**命名路由** name；非空时 `registerRoutes` 通过 `router.addRoute(parentName, child)` 挂到该父级下（通常为带 Layout 的壳路由），子项 path 应为相对路径
+ * @property {(ctx: { pluginId: string, router: import('vue-router').default, routes: ReadonlyArray<import('vue-router').RouteConfig> }) => import('vue-router').RouteConfig[]} [transformRoutes] 在合成 `name`/`meta.pluginId` 之前转换 `RouteConfig`
+ * @property {(ctx: { pluginId: string, router: import('vue-router').default, routes: ReadonlyArray<import('vue-router').RouteConfig>, applyInternalRegister: (routes: import('vue-router').RouteConfig[]) => void }) => void} [interceptRegisterRoutes]
+ * @property {(ctx: { pluginId: string, router: import('vue-router').default, declarations: ReadonlyArray<object> }) => import('vue-router').RouteConfig[]} [adaptRouteDeclarations] PRD（如含 `componentRef`）→ `RouteConfig`
  */
 
 import { defaultWebExtendPluginRuntime } from '../default-runtime-config.js'
@@ -160,6 +164,17 @@ export function resolveRuntimeOptions(user = {}) {
     allowedScriptHosts,
     bridgeAllowedPathPrefixes,
     bootstrapSummary: user.bootstrapSummary,
-    ...(typeof user.fetchManifest === 'function' ? { fetchManifest: user.fetchManifest } : {})
+    pluginRoutesParentName:
+      user.pluginRoutesParentName !== undefined && String(user.pluginRoutesParentName).trim() !== ''
+        ? String(user.pluginRoutesParentName).trim()
+        : '',
+    ...(typeof user.fetchManifest === 'function' ? { fetchManifest: user.fetchManifest } : {}),
+    ...(typeof user.transformRoutes === 'function' ? { transformRoutes: user.transformRoutes } : {}),
+    ...(typeof user.interceptRegisterRoutes === 'function'
+      ? { interceptRegisterRoutes: user.interceptRegisterRoutes }
+      : {}),
+    ...(typeof user.adaptRouteDeclarations === 'function'
+      ? { adaptRouteDeclarations: user.adaptRouteDeclarations }
+      : {})
   }
 }

@@ -1,18 +1,13 @@
 /**
- * 单插件卸载：与 `bootstrapPlugins` / `createHostApi` 对称，清理注册表与 DOM 副作用。
- *
- * @module dispose-plugin
+ * 卸载单个插件：执行 teardown、清理注册表与 activator、移除带 `data-plugin-asset` 的 DOM。
+ * 注意：Vue Router 3 无公开 `removeRoute`，动态路由通常需整页刷新或宿主自行维护。
  */
 import Vue from 'vue'
-import { registries } from './registries.js'
-import { runPluginTeardowns } from './teardown-registry.js'
+import { registries } from './plugin-registries.js'
+import { runPluginTeardowns } from './plugin-teardown-registry.js'
 
 /**
- * 卸载指定 id 的插件：依次执行 teardown、移除菜单与扩展点条目、删除 activator、移除带 `data-plugin-asset` 的节点。
- *
- * **路由**：Vue Router 3 无公开 `removeRoute`，此处不改动 matcher；动态路由需整页刷新或自行维护路由表。
- *
- * @param {string} pluginId 与 manifest.id 一致
+ * @param {string} pluginId 与 manifest `id` 一致
  */
 export function disposeWebPlugin(pluginId) {
   if (!pluginId || typeof pluginId !== 'string') {

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   createVueCliAxiosInstallOptions,
-  manifestPathForVueCliApiBase,
-  unwrapTableStyleManifestBody,
+  resolveManifestPathUnderApiBase,
+  unwrapNestedManifestBody,
   presetVueCliAxios
 } from '../../src/presets/vue-cli-axios.js'
 
@@ -10,29 +10,32 @@ describe('presetVueCliAxios', () => {
   it('exposes stable facade', () => {
     expect(presetVueCliAxios.id).toBe('vue-cli-axios')
     expect(presetVueCliAxios.createInstallOptions).toBe(createVueCliAxiosInstallOptions)
-    expect(presetVueCliAxios.manifestPathForApiBase).toBe(manifestPathForVueCliApiBase)
-    expect(presetVueCliAxios.unwrapManifestBody).toBe(unwrapTableStyleManifestBody)
+    expect(presetVueCliAxios.manifestPathForApiBase).toBe(resolveManifestPathUnderApiBase)
+    expect(presetVueCliAxios.unwrapManifestBody).toBe(unwrapNestedManifestBody)
   })
 })
 
-describe('unwrapTableStyleManifestBody', () => {
+describe('unwrapNestedManifestBody', () => {
   it('accepts flat plugins', () => {
-    const b = unwrapTableStyleManifestBody({ plugins: [{ id: 'a' }] })
+    const b = unwrapNestedManifestBody({ plugins: [{ id: 'a' }] })
     expect(b.plugins).toHaveLength(1)
   })
   it('unwraps data.plugins', () => {
-    const b = unwrapTableStyleManifestBody({ code: 200, data: { plugins: [] } })
+    const b = unwrapNestedManifestBody({ code: 200, data: { plugins: [] } })
     expect(b.plugins).toEqual([])
   })
 })
 
-describe('manifestPathForVueCliApiBase', () => {
+describe('resolveManifestPathUnderApiBase', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
   it('strips api base from pathname', () => {
     vi.stubGlobal('window', { location: { origin: 'http://localhost' } })
-    const p = manifestPathForVueCliApiBase('http://localhost/dev-api/api/frontend-plugins', '/dev-api')
+    const p = resolveManifestPathUnderApiBase(
+      'http://localhost/dev-api/api/frontend-plugins',
+      '/dev-api'
+    )
     expect(p).toBe('/api/frontend-plugins')
   })
 })

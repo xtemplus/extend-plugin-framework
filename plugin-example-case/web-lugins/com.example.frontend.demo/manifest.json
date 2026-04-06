@@ -10,5 +10,13 @@
     "routes": true,
     "slots": true,
     "assetInjection": true
-  }
+  },
+  "routeDeclarations": [
+    {
+      "path": "/plugin/stub-from-manifest",
+      "name": "plugin-stub-manifest",
+      "title": "清单 PRD Stub",
+      "componentRef": "demo:HostStub"
+    }
+  ]
 }

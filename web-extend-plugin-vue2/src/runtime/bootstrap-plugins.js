@@ -1,6 +1,5 @@
 /**
- * 拉取清单、合并 dev 映射、加载入口并执行 activator。
- * @module runtime/bootstrap-plugins
+ * 拉取插件清单、加载入口脚本并调用各插件 `activator`。
  */
 import semver from 'semver'
 import { HOST_PLUGIN_API_VERSION } from '../constants.js'
@@ -14,6 +13,7 @@ import { startPluginDevSseForMap } from './dev-reload-sse.js'
 import { resolveBundledEnv, resolveBundledIsDev } from './env-resolve.js'
 import { loadScript } from './load-script.js'
 import { buildAllowedScriptHostsSet, isScriptHostAllowed } from './path-host-utils.js'
+import { printRuntimeBannerOnce } from './print-runtime-banner.js'
 import { resolveRuntimeOptions } from './resolve-runtime-options.js'
 
 /**
@@ -46,7 +46,7 @@ async function loadPluginEntry(p, entryUrl, devMap, hostSet) {
   const devEntry = devMap && typeof devMap[p.id] === 'string' ? devMap[p.id].trim() : ''
   if (devEntry) {
     if (!isScriptHostAllowed(devEntry, hostSet)) {
-      console.warn('[plugins] dev entry URL not allowed', p.id, devEntry)
+      console.warn('[wep] dev entry URL not allowed', p.id, devEntry)
       return
     }
     try {
@@ -56,7 +56,7 @@ async function loadPluginEntry(p, entryUrl, devMap, hostSet) {
         devEntry
       )
     } catch (e) {
-      console.warn('[plugins] dev module import failed, try manifest entryUrl', p.id, e)
+      console.warn('[wep] dev import failed, trying manifest entryUrl', p.id, e)
       if (entryUrl && isScriptHostAllowed(entryUrl, hostSet)) {
         await loadScript(entryUrl)
       }
@@ -65,7 +65,7 @@ async function loadPluginEntry(p, entryUrl, devMap, hostSet) {
     return
   }
   if (!entryUrl || !isScriptHostAllowed(entryUrl, hostSet)) {
-    console.warn('[plugins] skip (entryUrl not allowed)', p.id, entryUrl)
+    console.warn('[wep] skip (entryUrl not allowed)', p.id, entryUrl)
     return
   }
   await loadScript(entryUrl)
@@ -73,14 +73,15 @@ async function loadPluginEntry(p, entryUrl, devMap, hostSet) {
 
 /**
  * @param {import('vue-router').default} router
- * @param {(pluginId: string, router: import('vue-router').default, hostKit?: { bridgeAllowedPathPrefixes: string[] }) => object} createHostApiFactory
+ * @param {(pluginId: string, router: import('vue-router').default, hostKit?: object) => object} createHostApiFactory
  * @param {import('./resolve-runtime-options.js').WebExtendPluginRuntimeOptions} [runtimeOptions]
  */
 export async function bootstrapPlugins(router, createHostApiFactory, runtimeOptions) {
   if (typeof window === 'undefined') {
-    console.warn('[plugins] bootstrapPlugins skipped: requires browser (window)')
+    console.warn('[wep] bootstrapPlugins skipped (no window)')
     return
   }
+  printRuntimeBannerOnce()
   const opts = resolveRuntimeOptions(runtimeOptions || {})
   const base = String(opts.manifestBase).replace(/\/$/, '')
   const manifestUrl = `${base}${opts.manifestListPath}`
@@ -108,16 +109,28 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
   const devMap = mergeDevMaps(implicit, explicit)
   startPluginDevSseForMap(devMap, opts.isDev, hostSet, opts.devReloadSsePath)
 
-  const hostKit = { bridgeAllowedPathPrefixes: opts.bridgeAllowedPathPrefixes }
+  const hostKit = {
+    bridgeAllowedPathPrefixes: opts.bridgeAllowedPathPrefixes,
+    ...(opts.pluginRoutesParentName
+      ? { pluginRoutesParentName: opts.pluginRoutesParentName }
+      : {}),
+    ...(typeof opts.transformRoutes === 'function' ? { transformRoutes: opts.transformRoutes } : {}),
+    ...(typeof opts.interceptRegisterRoutes === 'function'
+      ? { interceptRegisterRoutes: opts.interceptRegisterRoutes }
+      : {}),
+    ...(typeof opts.adaptRouteDeclarations === 'function'
+      ? { adaptRouteDeclarations: opts.adaptRouteDeclarations }
+      : {})
+  }
 
   if (!manifestResult.ok) {
     if (manifestResult.error) {
-      console.warn('[plugins] fetch manifest failed', manifestResult.error)
+      console.warn('[wep] fetch manifest failed', manifestResult.error)
     } else {
-      console.warn('[plugins] manifest HTTP', manifestResult.status, manifestUrl)
+      console.warn('[wep] manifest HTTP', manifestResult.status, manifestUrl)
     }
     if (shouldShowBootstrapSummary(opts)) {
-      console.info('[plugins] bootstrap_summary', { ok: false, reason: 'manifest_fetch' })
+      console.info('[wep] bootstrap_summary', { ok: false, reason: 'manifest_fetch' })
     }
     return
   }
@@ -125,7 +138,7 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
   const data = manifestResult.data
   if (!data) {
     if (shouldShowBootstrapSummary(opts)) {
-      console.info('[plugins] bootstrap_summary', { ok: false, reason: 'manifest_empty_body' })
+      console.info('[wep] bootstrap_summary', { ok: false, reason: 'manifest_empty_body' })
     }
     return
   }
@@ -136,12 +149,10 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
     const maj = coerced ? coerced.major : 0
     const range = `^${maj}.0.0`
     if (!semver.satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
-      console.warn(
-        '[plugins] host API version mismatch: host implements',
-        HOST_PLUGIN_API_VERSION,
-        'server declares',
-        apiVer
-      )
+      console.warn('[wep] host API version mismatch', {
+        host: HOST_PLUGIN_API_VERSION,
+        manifest: apiVer
+      })
     }
   }
 
@@ -149,11 +160,7 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
 
   const plugins = data.plugins || []
   if (plugins.length === 0) {
-    console.info(
-      '[plugins] 清单为空。请检查：① 后端清单服务（plugin-web-starter）是否已接入；② web-plugin.web-plugins-dir 是否指向含各插件子目录及 manifest.json 的路径；③ 浏览器直接访问',
-      manifestUrl,
-      '是否返回 plugins 条目。'
-    )
+    console.info('[wep] empty plugin manifest — check backend and URL', manifestUrl)
   }
 
   const summary = {
@@ -168,7 +175,7 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
   for (const p of plugins) {
     const range = p.engines && p.engines.host
     if (range && !semver.satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
-      console.warn('[plugins] skip (engines.host)', p.id, range)
+      console.warn('[wep] skip plugin (engines.host)', p.id, range)
       summary.skipEngines++
       continue
     }
@@ -176,27 +183,28 @@ export async function bootstrapPlugins(router, createHostApiFactory, runtimeOpti
     try {
       await loadPluginEntry(p, entryUrl, devMap, hostSet)
     } catch (e) {
-      console.warn('[plugins] script load failed', p.id, e)
+      console.warn('[wep] script load failed', p.id, e)
       summary.skipLoad++
       continue
     }
     const activator = window.__PLUGIN_ACTIVATORS__[p.id]
     if (typeof activator !== 'function') {
-      console.warn('[plugins] no activator for', p.id)
+      console.warn('[wep] no activator for', p.id)
       summary.skipNoActivator++
       continue
     }
     const hostApi = createHostApiFactory(p.id, router, hostKit)
     try {
-      activator(hostApi)
+      const pluginRecord = Object.freeze({ ...p })
+      activator(hostApi, { pluginRecord })
       summary.activated++
     } catch (e) {
-      console.error('[plugins] activate failed', p.id, e)
+      console.error('[wep] activate failed', p.id, e)
       summary.activateFail++
     }
   }
 
   if (shouldShowBootstrapSummary(opts)) {
-    console.info('[plugins] bootstrap_summary', { ok: true, ...summary })
+    console.info('[wep] bootstrap_summary', { ok: true, ...summary })
   }
 }

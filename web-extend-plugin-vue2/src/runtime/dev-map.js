@@ -19,7 +19,7 @@ export function parseWebPluginDevMapExplicit(opts) {
     const map = JSON.parse(String(raw))
     return map && typeof map === 'object' ? map : null
   } catch {
-    console.warn('[plugins] webPluginDevMapJson / VITE_WEB_PLUGIN_DEV_MAP is not valid JSON')
+    console.warn('[wep] invalid webPluginDevMapJson / VITE_WEB_PLUGIN_DEV_MAP')
     return null
   }
 }
@@ -101,14 +101,7 @@ export async function buildImplicitWebPluginDevMap(opts, hostSet) {
     map[id] = `${base}${pathPart}`
   }
   if (ids.length) {
-    console.info(
-      '[plugins] 已检测到插件 dev 服务（',
-      base,
-      '），下列 id 将加载隐式 dev 入口（',
-      pathPart,
-      '）而非清单 dist：',
-      ids.join(', ')
-    )
+    console.info('[wep] plugin dev server', base, '→ implicit entries', pathPart, ids.join(', '))
   }
   return map
 }

@@ -1,8 +1,7 @@
 /**
- * 从注入环境与 `process.env` 解析 VITE_/PLUGIN_ 键。
- * @module runtime/env-resolve
+ * 从注入环境与 `process.env` 解析 `VITE_*` / `PLUGIN_*` 键。
  */
-import { readInjectedEnvDev, readInjectedEnvKey } from '../bundled-env.js'
+import { readInjectedEnvDev, readInjectedEnvKey } from '../build-env.js'
 
 /**
  * @param {string} key
@@ -16,7 +15,9 @@ function readProcessEnv(key) {
         return String(v)
       }
     }
-  } catch (_) {}
+  } catch (_) {
+    /* ignore */
+  }
   return undefined
 }
 
@@ -47,19 +48,21 @@ export function resolveBundledEnv(key, fallback = '') {
   return first === undefined || first === null ? fallback : first
 }
 
-/**
- * @returns {boolean}
- */
+/** @returns {boolean} */
 export function resolveBundledIsDev() {
   try {
     if (readInjectedEnvDev()) {
       return true
     }
-  } catch (_) {}
+  } catch (_) {
+    /* ignore */
+  }
   try {
     if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') {
       return true
     }
-  } catch (_) {}
+  } catch (_) {
+    /* ignore */
+  }
   return false
 }

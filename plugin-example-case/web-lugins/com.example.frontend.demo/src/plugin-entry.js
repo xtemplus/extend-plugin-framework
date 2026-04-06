@@ -3,14 +3,23 @@ import SlotADemo from './components/SlotADemo.vue'
 import SlotBDemo from './components/SlotBDemo.vue'
 import ToolbarDemo from './components/ToolbarDemo.vue'
 
-function activate(hostApi) {
+function activate(hostApi, context) {
   if (typeof window === 'undefined' || !window.Vue) {
     console.error('[demo-plugin] window.Vue is required')
     return
   }
 
+  const pr = context && context.pluginRecord
+  const decls = pr && Array.isArray(pr.routeDeclarations) ? pr.routeDeclarations : []
+  if (decls.length) {
+    hostApi.registerRoutes(decls)
+  }
+
   hostApi.registerMenuItems([
-    { id: 'demo-fe-menu', label: '插件 Hello 页', path: '/plugin/hello', order: 40 }
+    { id: 'demo-fe-menu', label: '插件 Hello 页', path: '/plugin/hello', order: 40 },
+    ...(decls.length
+      ? [{ id: 'demo-fe-stub', label: '清单 PRD 页', path: '/plugin/stub-from-manifest', order: 41 }]
+      : [])
   ])
 
   hostApi.registerRoutes([

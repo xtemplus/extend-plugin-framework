@@ -15,7 +15,7 @@
 Spring Boot 会自动加载 **classpath 根下** 的 `application.yml` / `application.properties`（各依赖 JAR 合并）。若本 SDK 仍带一份 `application.yml`，容易出现：
 
 - 与宿主的 `server.port`、数据源、日志等 **意外覆盖或合并顺序难控**；
-- 演示用路径（如 `plugin-example-case/...`）污染生产配置。
+- 在 JAR 内放一份「会合并进宿主」的 `application.yml` 易与宿主配置冲突；代码默认值已偏向 `plugins/web`（候选路径仍含 `plugin-example-case/plugins/web` 以兼容旧示例布局）。
 
 因此 **本模块不在 `src/main/resources/application.yml` 提供默认配置**；改为在 JAR 内提供 **示例文件**（见下），由宿主 **显式复制** 或 `spring.config.import` 引用。
 

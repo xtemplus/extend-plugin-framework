@@ -1,6 +1,6 @@
 /**
  * 清单拉取函数的组合工具：缓存、埋点等以**中间件**形式扩展，不侵入 `bootstrapPlugins` 核心逻辑，
- * 符合第三方依赖「可组合、可替换」约定。契约与 `PluginRuntime` 中 `fetchManifest` 一致。
+ * 可组合的 `fetchManifest` 包装；入参/出参与 `resolveRuntimeOptions({ fetchManifest })` 一致。
  *
  * @module runtime/manifest-fetch-composer
  */

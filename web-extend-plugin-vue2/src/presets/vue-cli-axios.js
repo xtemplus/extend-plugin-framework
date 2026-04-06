@@ -1,21 +1,18 @@
 /**
- * 预设：Vue CLI + 统一 axios（如若依 `utils/request`）。
- * 对外以 {@link presetVueCliAxios} 聚合；亦保留具名函数便于 tree-shaking。
- *
- * @module presets/vue-cli-axios
+ * Vue CLI + 统一 axios（如 RuoYi `utils/request`）场景的 `install` 预设。
  */
 
 /**
- * @typedef {object} VueCliAxiosInstallPresetDeps
- * @property {(config: { url: string, method?: string, [key: string]: unknown }) => Promise<unknown>} request 宿主 axios 封装（已含 baseURL、Token 等）
+ * @typedef {object} VueCliAxiosPresetDeps
+ * @property {(config: { url: string, method?: string }) => Promise<unknown>} request
  */
 
 /**
- * 将 `manifestBase + manifestListPath` 转为相对 `VUE_APP_BASE_API` 的路径（供 axios baseURL 拼接）。
+ * 将完整 manifest URL 转为相对 `apiBase` 的请求 path，供 axios `baseURL` 拼接。
  * @param {string} manifestUrl
  * @param {string} [apiBase]
  */
-export function manifestPathForVueCliApiBase(manifestUrl, apiBase) {
+export function resolveManifestPathUnderApiBase(manifestUrl, apiBase) {
   const base = String(
     apiBase !== undefined
       ? apiBase
@@ -33,11 +30,11 @@ export function manifestPathForVueCliApiBase(manifestUrl, apiBase) {
 }
 
 /**
- * 兼容裸清单 JSON 与常见 `{ code, data: { plugins } }` 包装。
+ * 将裸 `{ plugins }` 与 `{ code, data: { plugins } }` 式响应解包为清单对象。
  * @param {unknown} body
  * @returns {object|null}
  */
-export function unwrapTableStyleManifestBody(body) {
+export function unwrapNestedManifestBody(body) {
   if (!body || typeof body !== 'object') {
     return null
   }
@@ -69,15 +66,13 @@ function bridgePrefixesFromVueCliEnv() {
 }
 
 /**
- * 生成可直接传给 `installWebExtendPluginVue2` 的 options（含 fetchManifest、manifestBase、bridge 前缀）。
- * @param {VueCliAxiosInstallPresetDeps} deps
- * @param {Record<string, unknown>} [extra] 合并覆盖，如 `manifestListPath`、`env` 等
- * @returns {Record<string, unknown>}
+ * @param {VueCliAxiosPresetDeps} deps
+ * @param {Record<string, unknown>} [extra]
  */
 export function createVueCliAxiosInstallOptions(deps, extra = {}) {
   const { request } = deps
   if (typeof request !== 'function') {
-    throw new Error('[web-extend-plugin-vue2] createVueCliAxiosInstallOptions({ request }) 需要宿主 request 函数')
+    throw new Error('[wep] createVueCliAxiosInstallOptions requires deps.request')
   }
   const envBase = (
     typeof process !== 'undefined' && process.env && process.env.VUE_APP_BASE_API
@@ -92,16 +87,16 @@ export function createVueCliAxiosInstallOptions(deps, extra = {}) {
 
   const fetchManifest = async (ctx) => {
     try {
-      const url = manifestPathForVueCliApiBase(ctx.manifestUrl, stripBase)
+      const url = resolveManifestPathUnderApiBase(ctx.manifestUrl, stripBase)
       const body = await request({
         url,
         method: 'get'
       })
-      const data = unwrapTableStyleManifestBody(body)
+      const data = unwrapNestedManifestBody(body)
       if (!data || typeof data !== 'object') {
         return {
           ok: false,
-          error: new Error('[web-plugin] 清单响应格式无效'),
+          error: new Error('[wep] invalid manifest response'),
           data: null
         }
       }
@@ -127,14 +122,10 @@ export function createVueCliAxiosInstallOptions(deps, extra = {}) {
   return opts
 }
 
-/**
- * Vue CLI + axios 预设的**对外聚合入口**（与具名导出函数等价，便于按需查阅与扩展多预设）。
- * @type {Readonly<{ id: string, description: string, createInstallOptions: typeof createVueCliAxiosInstallOptions, manifestPathForApiBase: typeof manifestPathForVueCliApiBase, unwrapManifestBody: typeof unwrapTableStyleManifestBody }>}
- */
 export const presetVueCliAxios = Object.freeze({
   id: 'vue-cli-axios',
-  description: 'Vue CLI + 统一 axios 实例（如若依 utils/request），清单走宿主 request',
+  description: 'Vue CLI + unified axios request; manifest uses host request()',
   createInstallOptions: createVueCliAxiosInstallOptions,
-  manifestPathForApiBase: manifestPathForVueCliApiBase,
-  unwrapManifestBody: unwrapTableStyleManifestBody
+  manifestPathForApiBase: resolveManifestPathUnderApiBase,
+  unwrapManifestBody: unwrapNestedManifestBody
 })

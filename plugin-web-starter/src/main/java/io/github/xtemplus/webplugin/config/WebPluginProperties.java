@@ -19,13 +19,13 @@ import org.springframework.stereotype.Component;
 public class WebPluginProperties implements InitializingBean {
 
     /** Directory (relative to JVM working directory unless absolute) containing one subfolder per plugin. */
-    private String webPluginsDir = "plugin-example-case/plugins/web";
+    private String webPluginsDir = "plugins/web";
 
     /**
      * When {@link #webPluginsDir} is blank before binding (edge case), path resolver uses this relative
      * path; also used as fallback inside {@link WebPluginsPathResolver}.
      */
-    private String webPluginsDirResolutionFallback = "plugin-example-case/plugins/web";
+    private String webPluginsDirResolutionFallback = "plugins/web";
 
     /** HTTP path prefix for published plugin bundles (no trailing slash), e.g. {@code /plugins/web}. */
     private String pluginsWebPathPrefix = "/plugins/web";
@@ -33,8 +33,7 @@ public class WebPluginProperties implements InitializingBean {
     /** Relative paths (from a candidate base such as {@code user.dir}) tried in order when locating the
      * plugins root; host projects can prepend their own layout. */
     private List<String> pathResolutionCandidateRelativePaths =
-            new ArrayList<>(
-                    Arrays.asList("plugin-example-case/plugins/web", "plugins/web"));
+            new ArrayList<>(Arrays.asList("plugins/web", "plugin-example-case/plugins/web"));
 
     /** Manifest file name inside each plugin directory. */
     private String manifestFileName = "manifest.json";
@@ -43,7 +42,7 @@ public class WebPluginProperties implements InitializingBean {
     private String disabledStateFileName = "plugin-disabled.json";
 
     /** GET path for the plugin list JSON API. */
-    private String listPluginsApiPath = "/api/web-plugins";
+    private String listPluginsApiPath = "/web-plugins";
 
     /** Value returned as {@code hostPluginApiVersion} in API responses. */
     private String hostPluginApiVersion = "1.0.0";
@@ -55,8 +54,12 @@ public class WebPluginProperties implements InitializingBean {
      * Hosts allowed in generated absolute {@code http}/{@code https} URLs for <strong>both</strong> entry
      * scripts and stylesheets (exact host match, case-insensitive). YAML key remains {@code
      * entry-url-host-allowlist} for backward compatibility.
+     *
+     * <p>Default includes common local hosts so local dev works without YAML; production must add real API /
+     * gateway hostnames (and often set {@link #publicBaseUrl}).
      */
-    private List<String> entryUrlHostAllowlist = new ArrayList<>();
+    private List<String> entryUrlHostAllowlist =
+            new ArrayList<>(Arrays.asList("localhost", "127.0.0.1", "::1"));
 
     private int maxPlugins = 50;
 
