@@ -37,7 +37,7 @@ export type InterceptRegisterRoutesFn = (ctx: {
   pluginId: string
   router: unknown
   routes: ReadonlyArray<VueRouteConfig>
-  /** 与默认 `registerRoutes` 相同的包装 + `addRoute` / `addRoutes` */
+  /** 与默认 `registerRoutes` 相同的包装 + `router.addRoute` */
   applyInternalRegister: (routes: VueRouteConfig[]) => void
 }) => void
 
@@ -48,6 +48,39 @@ export type AdaptRouteDeclarationsFn = (ctx: {
   declarations: ReadonlyArray<RouteDeclaration>
 }) => VueRouteConfig[]
 
+/** 将插件 `registerMenuItems` 提交的数据并入宿主用于渲染侧栏/目录的 state（映射规则由宿主实现） */
+export type ApplyPluginMenuItemsFn = (ctx: {
+  pluginId: string
+  /** 已在各条上附带 `pluginId`，并按 `order` 升序 */
+  items: Array<Record<string, unknown>>
+}) => void
+
+/** 卸载插件时移除该插件贡献的菜单数据 */
+export type RevokePluginMenuItemsFn = (pluginId: string) => void
+
+/** 宿主在 `resolveRuntimeOptions({ hostContext })` 中注入；经浅冻结后由 `hostApi.hostContext` 只读暴露 */
+export type HostContext = Readonly<Record<string, unknown>>
+
+export type OnBeforePluginActivateFn = (ctx: {
+  pluginId: string
+  router: unknown
+  pluginRecord: Readonly<Record<string, unknown>>
+}) => void | Promise<void>
+
+export type OnAfterPluginActivateFn = (ctx: {
+  pluginId: string
+  router: unknown
+  pluginRecord: Readonly<Record<string, unknown>>
+  hostApi: unknown
+}) => void | Promise<void>
+
+export type OnPluginActivateErrorFn = (ctx: {
+  pluginId: string
+  error: unknown
+  pluginRecord: Readonly<Record<string, unknown>>
+  hostApi: unknown
+}) => void | Promise<void>
+
 /** 宿主传入 `createHostApi` 的 `hostKit`（及 `resolveRuntimeOptions` 中同类字段） */
 export type HostKitOptions = {
   /** `getBridge().request` 允许的URL路径前缀，须以 `/` 开头 */
@@ -57,6 +90,12 @@ export type HostKitOptions = {
   transformRoutes?: TransformRoutesFn
   interceptRegisterRoutes?: InterceptRegisterRoutesFn
   adaptRouteDeclarations?: AdaptRouteDeclarationsFn
+  /** 必填：插件调用 `registerMenuItems` 时由此写入宿主菜单/路由树等数据结构 */
+  applyPluginMenuItems?: ApplyPluginMenuItemsFn
+  /** 建议与 `applyPluginMenuItems` 成对配置；`disposeWebPlugin` 会调用以撤销该插件菜单 */
+  revokePluginMenuItems?: RevokePluginMenuItemsFn
+  /** 由引导流程浅冻结后传入各插件的 `hostApi.hostContext` */
+  hostContext?: HostContext
 }
 
 /** `resolveRuntimeOptions` 全量运行时选项（在默认字段基础上的扩展；未列字段见 README） */
@@ -64,7 +103,23 @@ export type WebExtendPluginRuntimeOptions = HostKitOptions &
   Record<string, unknown> & {
     manifestBase?: string
     manifestListPath?: string
+    /** 默认 `api`；`static` 时用 `staticManifestUrl` 拉取聚合 JSON，不请求 Java 清单接口 */
+    manifestMode?: 'api' | 'static'
+    /** 静态清单 URL（绝对或站点内路径），`manifestMode: 'static'` 时必填（或配置环境变量） */
+    staticManifestUrl?: string
+    /** `manifestMode=api` 且开发环境：API 失败或 `plugins` 为空时是否尝试 `devFallbackStaticManifestUrl`（默认 true） */
+    devManifestFallback?: boolean
+    /** 开发回退静态清单路径，默认 `/web-plugins/plugins.manifest.json` */
+    devFallbackStaticManifestUrl?: string
     manifestFetchCredentials?: RequestCredentials
+    /** 宿主 Layout，传入后自动注册 `pluginMountPath` 壳路由 */
+    hostLayoutComponent?: unknown
+    /** 插件 URL 前缀，默认 `/plugin` */
+    pluginMountPath?: string
+    /** 壳路由 meta */
+    pluginHostRouteMeta?: Record<string, unknown>
+    /** 是否执行自动壳路由注册，默认 true */
+    ensurePluginHostRoute?: boolean
     isDev?: boolean
     webPluginDevOrigin?: string
     webPluginDevIds?: string
@@ -77,18 +132,31 @@ export type WebExtendPluginRuntimeOptions = HostKitOptions &
     allowedScriptHosts?: string[]
     bootstrapSummary?: boolean
     fetchManifest?: ManifestFetchFn
+    /** 插件通过 `hostApi.hostContext` 只读访问（浅冻结拷贝）；如 `{ store, i18n }` */
+    hostContext?: Record<string, unknown>
+    /** 调用 `activator` 之前；抛出异常将跳过该插件并计入失败 */
+    onBeforePluginActivate?: OnBeforePluginActivateFn
+    /** `activator` 成功返回后 */
+    onAfterPluginActivate?: OnAfterPluginActivateFn
+    /** `activator` 抛错后；用于埋点/降级，不应再抛错（再抛仅记录 warn） */
+    onPluginActivateError?: OnPluginActivateErrorFn
   }
 
 /** 插件 `activator` 收到的宿主 API */
 export interface HostApi {
   /** 宿主实现的 Host API 协议版本，与清单 `hostPluginApiVersion` 对齐 */
   readonly hostPluginApiVersion: string
+  /** 宿主注入上下文（`resolveRuntimeOptions.hostContext` 的浅冻结快照）；无则 `{}` */
+  readonly hostContext: HostContext
   /**
    * 动态注册路由。含 PRD 时使用 `componentRef` 树；否则传入 `RouteConfig` 数组。
    * 流水线：`adaptRouteDeclarations` → `transformRoutes` → `interceptRegisterRoutes` 或默认注册。
    */
   registerRoutes(routes: VueRouteConfig[] | RouteDeclaration[]): void
-  /** 写入全局菜单注册表，按 `order` 升序 */
+  /**
+   * 向宿主登记侧栏/目录菜单意图；由 `applyPluginMenuItems` 写入宿主 state。
+   * 未配置 `applyPluginMenuItems` 时调用会抛错。
+   */
   registerMenuItems(items: Record<string, unknown>[]): void
   registerSlotComponents(
     pointId: string,
@@ -135,6 +203,7 @@ export const WebExtendPluginVue2: Readonly<{
       runtimeOptions?: WebExtendPluginRuntimeOptions
     ) => Promise<void>
     resolveRuntimeOptions: (user?: WebExtendPluginRuntimeOptions) => WebExtendPluginRuntimeOptions
+    ensurePluginHostRoute: (router: unknown, opts: WebExtendPluginRuntimeOptions) => void
     defaultFetchWebPluginManifest: (ctx: {
       manifestUrl: string
       credentials: RequestCredentials
@@ -185,6 +254,8 @@ export function bootstrapPlugins(
 
 /** 合并默认配置、环境变量与显式传入字段 */
 export function resolveRuntimeOptions(user?: WebExtendPluginRuntimeOptions): WebExtendPluginRuntimeOptions
+
+export function ensurePluginHostRoute(router: unknown, opts: WebExtendPluginRuntimeOptions): void
 
 export function defaultFetchWebPluginManifest(ctx: {
   manifestUrl: string

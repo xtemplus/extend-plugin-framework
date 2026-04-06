@@ -1,0 +1,267 @@
+/**
+ * 合并用户、环境与默认配置得到运行时选项。
+ */
+
+import { defaultWebExtendPluginRuntime } from '../core/default-runtime-config'
+import { resolveBundledEnv, resolveBundledIsDev } from './env-resolve'
+import { resolveManifestModeFromInputs, resolveStaticManifestUrlFromInputs } from './manifest-mode'
+import { ensureLeadingPath, normalizeHost } from './path-host-utils'
+
+const DEF = defaultWebExtendPluginRuntime
+
+export type ApplyPluginMenuItemsFn = (ctx: {
+  pluginId: string
+  items: Array<Record<string, unknown>>
+}) => void
+
+export type RevokePluginMenuItemsFn = (pluginId: string) => void
+
+/** 宿主注入、插件只读的依赖载体（如 Vuex、i18n、业务 API）；勿放不可序列化且会随插件变化的闭包 secrets */
+export type HostContext = Readonly<Record<string, unknown>>
+
+export type OnBeforePluginActivateFn = (ctx: {
+  pluginId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any
+  pluginRecord: Readonly<Record<string, unknown>>
+}) => void | Promise<void>
+
+export type OnAfterPluginActivateFn = (ctx: {
+  pluginId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any
+  pluginRecord: Readonly<Record<string, unknown>>
+  hostApi: unknown
+}) => void | Promise<void>
+
+export type OnPluginActivateErrorFn = (ctx: {
+  pluginId: string
+  error: unknown
+  pluginRecord: Readonly<Record<string, unknown>>
+  hostApi: unknown
+}) => void | Promise<void>
+
+function resolveManifestCredentials(
+  userVal: RequestCredentials | undefined,
+  envKey: string,
+  fallback: RequestCredentials
+): RequestCredentials {
+  if (userVal !== undefined) {
+    const s = String(userVal)
+    if (s === 'include' || s === 'omit' || s === 'same-origin') {
+      return s as RequestCredentials
+    }
+  }
+  const e = resolveBundledEnv(envKey, '')
+  if (e === 'include' || e === 'omit' || e === 'same-origin') {
+    return e
+  }
+  return fallback
+}
+
+function resolvePositiveInt(userVal: number | undefined, envKey: string, fallback: number): number {
+  if (typeof userVal === 'number' && Number.isFinite(userVal) && userVal > 0) {
+    return Math.floor(userVal)
+  }
+  const raw = resolveBundledEnv(envKey, '')
+  const n = raw ? parseInt(raw, 10) : NaN
+  if (Number.isFinite(n) && n > 0) {
+    return n
+  }
+  return fallback
+}
+
+/** 合并用户、环境变量与 `defaultWebExtendPluginRuntime`，得到完整运行时选项（宿主可只传需要覆盖的字段）。 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function resolveRuntimeOptions(user: Record<string, any> = {}) {
+  const manifestBaseRaw =
+    user.manifestBase !== undefined && user.manifestBase !== ''
+      ? String(user.manifestBase)
+      : resolveBundledEnv('VITE_FRONTEND_PLUGIN_BASE', DEF.manifestBase) || DEF.manifestBase
+
+  const manifestListPath = ensureLeadingPath(
+    user.manifestListPath !== undefined && user.manifestListPath !== ''
+      ? user.manifestListPath
+      : resolveBundledEnv('VITE_WEB_PLUGIN_MANIFEST_PATH', DEF.manifestListPath)
+  )
+
+  const defaultImplicitDevPluginIds = Array.isArray(user.defaultImplicitDevPluginIds)
+    ? user.defaultImplicitDevPluginIds.map(String).filter(Boolean)
+    : (() => {
+        const e = resolveBundledEnv('VITE_WEB_PLUGIN_IMPLICIT_DEV_IDS', '')
+        if (e) {
+          return e
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        }
+        return [...DEF.defaultImplicitDevPluginIds]
+      })()
+
+  const allowedScriptHosts =
+    Array.isArray(user.allowedScriptHosts) && user.allowedScriptHosts.length > 0
+      ? user.allowedScriptHosts.map((h: string) => normalizeHost(String(h))).filter(Boolean)
+      : (() => {
+          const e = resolveBundledEnv('VITE_WEB_PLUGIN_ALLOWED_SCRIPT_HOSTS', '')
+          if (e) {
+            return e
+              .split(',')
+              .map((s: string) => normalizeHost(s.trim()))
+              .filter(Boolean)
+          }
+          return [...DEF.allowedScriptHosts]
+        })()
+
+  const bridgeAllowedPathPrefixes =
+    Array.isArray(user.bridgeAllowedPathPrefixes) && user.bridgeAllowedPathPrefixes.length > 0
+      ? user.bridgeAllowedPathPrefixes.map((p: string) => ensureLeadingPath(p)).filter(Boolean)
+      : (() => {
+          const e = resolveBundledEnv('VITE_WEB_PLUGIN_BRIDGE_PREFIXES', '')
+          if (e) {
+            return e
+              .split(',')
+              .map((s: string) => ensureLeadingPath(s.trim()))
+              .filter(Boolean)
+          }
+          return [...DEF.bridgeAllowedPathPrefixes]
+        })()
+
+  const manifestMode = resolveManifestModeFromInputs(user.manifestMode)
+  const staticManifestUrl = resolveStaticManifestUrlFromInputs(user.staticManifestUrl)
+
+  const isDevResolved = user.isDev !== undefined ? user.isDev : resolveBundledIsDev()
+
+  const devFallbackStaticManifestUrl = (() => {
+    if (user.devFallbackStaticManifestUrl !== undefined && String(user.devFallbackStaticManifestUrl).trim() !== '') {
+      return String(user.devFallbackStaticManifestUrl).trim()
+    }
+    const e = resolveBundledEnv('VITE_WEB_PLUGIN_DEV_FALLBACK_MANIFEST_URL', '')
+    if (e) {
+      return e.trim()
+    }
+    return String(DEF.devFallbackStaticManifestUrl || '/web-plugins/plugins.manifest.json').trim()
+  })()
+
+  const hostLayoutComponent = user.hostLayoutComponent
+
+  const pluginRoutesParentName = (() => {
+    if (user.pluginRoutesParentName !== undefined) {
+      return String(user.pluginRoutesParentName).trim()
+    }
+    if (hostLayoutComponent != null) {
+      return String(DEF.pluginRoutesParentName || '__wepPluginHost').trim()
+    }
+    return ''
+  })()
+
+  const pluginMountRaw =
+    user.pluginMountPath !== undefined && String(user.pluginMountPath).trim() !== ''
+      ? String(user.pluginMountPath).trim()
+      : String(resolveBundledEnv('VITE_WEB_PLUGIN_MOUNT_PATH', '') || DEF.pluginMountPath || '/plugin').trim()
+
+  const pluginMountPath = ensureLeadingPath(pluginMountRaw || '/plugin')
+
+  const pluginHostRouteMeta =
+    user.pluginHostRouteMeta !== undefined && user.pluginHostRouteMeta !== null
+      ? user.pluginHostRouteMeta
+      : undefined
+
+  const ensurePluginHostRoute = user.ensurePluginHostRoute !== false
+
+  const devManifestFallback = (() => {
+    if (manifestMode === 'static') {
+      return false
+    }
+    if (user.devManifestFallback === false) {
+      return false
+    }
+    if (user.devManifestFallback === true) {
+      return true
+    }
+    const envFlag = resolveBundledEnv('VITE_WEB_PLUGIN_DEV_MANIFEST_FALLBACK', '')
+    if (envFlag === '0' || envFlag === 'false') {
+      return false
+    }
+    if (envFlag === '1' || envFlag === 'true') {
+      return true
+    }
+    return !!isDevResolved
+  })()
+
+  return {
+    manifestBase: manifestBaseRaw.replace(/\/$/, '') || DEF.manifestBase.replace(/\/$/, ''),
+    manifestListPath,
+    manifestMode,
+    staticManifestUrl,
+    devManifestFallback,
+    devFallbackStaticManifestUrl,
+    manifestFetchCredentials: resolveManifestCredentials(
+      user.manifestFetchCredentials,
+      'VITE_WEB_PLUGIN_MANIFEST_CREDENTIALS',
+      DEF.manifestFetchCredentials
+    ),
+    isDev: isDevResolved,
+    webPluginDevOrigin:
+      user.webPluginDevOrigin !== undefined ? user.webPluginDevOrigin : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_ORIGIN', ''),
+    webPluginDevIds:
+      user.webPluginDevIds !== undefined ? user.webPluginDevIds : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_IDS', ''),
+    webPluginDevMapJson:
+      user.webPluginDevMapJson !== undefined
+        ? user.webPluginDevMapJson
+        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_MAP', ''),
+    webPluginDevEntryPath: ensureLeadingPath(
+      user.webPluginDevEntryPath !== undefined && user.webPluginDevEntryPath !== ''
+        ? user.webPluginDevEntryPath
+        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_ENTRY', DEF.webPluginDevEntryPath)
+    ),
+    devPingPath: ensureLeadingPath(
+      user.devPingPath !== undefined && user.devPingPath !== ''
+        ? user.devPingPath
+        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_PING_PATH', DEF.devPingPath)
+    ),
+    devReloadSsePath: ensureLeadingPath(
+      user.devReloadSsePath !== undefined && user.devReloadSsePath !== ''
+        ? user.devReloadSsePath
+        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_SSE_PATH', DEF.devReloadSsePath)
+    ),
+    devPingTimeoutMs: resolvePositiveInt(user.devPingTimeoutMs, 'VITE_WEB_PLUGIN_DEV_PING_TIMEOUT_MS', DEF.devPingTimeoutMs),
+    defaultImplicitDevPluginIds,
+    allowedScriptHosts,
+    bridgeAllowedPathPrefixes,
+    bootstrapSummary: user.bootstrapSummary,
+    hostLayoutComponent,
+    pluginMountPath,
+    pluginHostRouteMeta,
+    ensurePluginHostRoute,
+    pluginRoutesParentName,
+    ...(typeof user.fetchManifest === 'function' ? { fetchManifest: user.fetchManifest } : {}),
+    ...(typeof user.transformRoutes === 'function' ? { transformRoutes: user.transformRoutes } : {}),
+    ...(typeof user.interceptRegisterRoutes === 'function'
+      ? { interceptRegisterRoutes: user.interceptRegisterRoutes }
+      : {}),
+    ...(typeof user.adaptRouteDeclarations === 'function'
+      ? { adaptRouteDeclarations: user.adaptRouteDeclarations }
+      : {}),
+    ...(typeof user.applyPluginMenuItems === 'function'
+      ? { applyPluginMenuItems: user.applyPluginMenuItems as ApplyPluginMenuItemsFn }
+      : {}),
+    ...(typeof user.revokePluginMenuItems === 'function'
+      ? { revokePluginMenuItems: user.revokePluginMenuItems as RevokePluginMenuItemsFn }
+      : {}),
+    ...(user.hostContext !== undefined &&
+    user.hostContext !== null &&
+    typeof user.hostContext === 'object' &&
+    !Array.isArray(user.hostContext)
+      ? { hostContext: user.hostContext as Record<string, unknown> }
+      : {}),
+    ...(typeof user.onBeforePluginActivate === 'function'
+      ? { onBeforePluginActivate: user.onBeforePluginActivate as OnBeforePluginActivateFn }
+      : {}),
+    ...(typeof user.onAfterPluginActivate === 'function'
+      ? { onAfterPluginActivate: user.onAfterPluginActivate as OnAfterPluginActivateFn }
+      : {}),
+    ...(typeof user.onPluginActivateError === 'function'
+      ? { onPluginActivateError: user.onPluginActivateError as OnPluginActivateErrorFn }
+      : {})
+  }
+}

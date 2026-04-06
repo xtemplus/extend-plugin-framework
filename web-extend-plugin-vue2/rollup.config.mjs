@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import commonjs from '@rollup/plugin-commonjs'
 import { nodeResolve } from '@rollup/plugin-node-resolve'
+import typescript from '@rollup/plugin-typescript'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
@@ -11,7 +12,7 @@ const external = [
 ]
 
 export default {
-  input: 'src/index.js',
+  input: 'src/index.ts',
   output: [
     {
       file: 'dist/index.cjs',
@@ -28,5 +29,9 @@ export default {
     }
   ],
   external,
-  plugins: [nodeResolve(), commonjs()]
+  plugins: [
+    nodeResolve(),
+    commonjs(),
+    typescript({ tsconfig: './tsconfig.json' })
+  ]
 }

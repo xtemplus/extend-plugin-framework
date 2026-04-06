@@ -1,6 +1,6 @@
 {
   "name": "web-extend-plugin-vue2",
-  "version": "0.2.3",
+  "version": "0.4.1",
   "publishConfig": {
     "access": "public"
   },
@@ -22,7 +22,7 @@
   ],
   "peerDependencies": {
     "vue": ">=2.6.14 <3.0.0",
-    "vue-router": ">=3.2.0 <4.0.0"
+    "vue-router": ">=3.5.0 <4.0.0"
   },
   "dependencies": {
     "semver": "^7.6.3"
@@ -30,8 +30,14 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/node": "^22.10.2",
     "rollup": "^4.28.0",
-    "vitest": "^2.1.9"
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "vue": "^2.7.16",
+    "vue-router": "^3.6.5"
   },
   "scripts": {
     "build": "rollup -c rollup.config.mjs",
