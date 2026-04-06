@@ -1,6 +1,6 @@
 {
   "name": "web-extend-plugin-vue2",
-  "version": "0.4.1",
+  "version": "0.2.5",
   "publishConfig": {
     "access": "public"
   },
@@ -42,6 +42,7 @@
   "scripts": {
     "build": "rollup -c rollup.config.mjs",
     "test": "vitest run",
+    "test:peer-min": "npm install --no-save vue@2.6.14 vue-router@3.5.4 && npm run build && npm test && npm install",
     "prepublishOnly": "npm run build && npm run test"
   },
   "license": "Apache-2.0",

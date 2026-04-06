@@ -1,7 +1,7 @@
 /**
  * 插件访问后端的受控通道：`fetch` 仅允许落在配置的路径前缀下（默认 `/api/`），默认 `credentials: 'same-origin'`。
  */
-import { defaultWebExtendPluginRuntime } from '../core/default-runtime-config'
+import { defaultWebExtendPluginRuntime } from '../core/public-config-defaults'
 import { ensureLeadingPath } from '../runtime/path-host-utils'
 
 export function createRequestBridge(config: { allowedPathPrefixes?: string[] } = {}) {

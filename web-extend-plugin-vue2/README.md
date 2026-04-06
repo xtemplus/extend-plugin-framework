@@ -4,6 +4,20 @@
 
 **Peer：`vue` ^2.6.14 \<3，`vue-router` ^3.5 \<4**（依赖 `router.addRoute`）。**
 
+### 本包 `devDependencies` 里的 `vue` / `vue-router` 会不会和宿主冲突？
+
+**不会误入发布物。** 二者在 **`peerDependencies`** 中声明，由**宿主工程安装并解析版本**；本仓库的 **`devDependencies`** 仅用于在本项目内跑 **TypeScript 检查、Vitest、 contributors 本地开发**。打包时 Rollup 将 `peerDependencies` 全部标为 **external**，**不会**把 Vue / Vue Router 打进 `dist/`，运行时使用的仍是宿主 `node_modules` 里那一份。
+
+若仍有顾虑，可这样理解：
+
+| 场景 | 说明 |
+|------|------|
+| **宿主正常 npm/yarn/pnpm 安装** | 安装器会按 peer 范围校验/提升，与单一 Vue 实例一致 |
+| **Monorepo / `npm link` / workspace** | 确保工作区根只解析出 **一个** `vue`（避免「双 Vue」）；可用包管理器的 `overrides` / `resolutions` 钉版本 |
+| **版本下限** | 本库源码按 peer 下限（Vue 2.6+、Router 3.5+）编写；dev 使用较新 2.7 / 3.6 仅便于类型与本地调试，**不要求**宿主与 dev 完全一致，只要在 peer 范围内即可 |
+
+**本地验证 peer 下限**：在本包目录执行 **`npm run test:peer-min`**（临时将 `node_modules` 中的 `vue` / `vue-router` 换为与 `peerMinimumVersions` 一致的版本并执行 build+test，最后 `npm install` 恢复）。仓库已含 **GitHub Actions**（`.github/workflows/WEB_EXTEND_PLUGIN_VUE2.yml`）对 default / min 双矩阵跑 CI。
+
 ---
 
 ## 如何使用
@@ -20,6 +34,46 @@ installWebExtendPluginVue2(Vue, router, {
 ```
 
 **Vue CLI + 已有 axios `request`**（开箱：`/plugin` 壳路由 + Layout 由框架注册；清单可走 Java，开发态可自动回退 `public/web-plugins/plugins.manifest.json`）：
+
+**更少样板（推荐）**：自动写入 `window.Vue`（IIFE 插件与 build-kit 约定）、合并 `hostContext`（`router` + 可选 `store`）、默认 `manifestListPath` 为 **`/frontend-plugins`**（与 `VUE_APP_BASE_API` 拼接；若后端为 `/api/frontend-plugins` 请在第 4 参数传 `manifestListPath: '/api/frontend-plugins'`）、`isDev` 与构建环境一致。按需关闭全局 Vue：`{ exposeGlobalVue: false }`。
+
+```js
+import { installVueCliAxiosWebPlugins } from 'web-extend-plugin-vue2'
+import request from '@/utils/request'
+import Layout from '@/layout'
+import store from '@/store'
+
+installVueCliAxiosWebPlugins(
+  Vue,
+  router,
+  {
+    request,
+    hostLayoutComponent: Layout,
+    store,
+    applyPluginMenuItems: ({ pluginId, items }) => {
+      /* 并入宿主侧栏 */
+    },
+    revokePluginMenuItems: (pluginId) => {
+      /* 撤销该插件菜单 */
+    }
+  },
+  { manifestBase: process.env.VUE_APP_BASE_API }
+).catch((e) => console.warn('[web-plugin] bootstrap failed', e))
+```
+
+等价于自行组合 `createVueCliAxiosQuickInstallOptions` + `installWebExtendPluginVue2`；仅选项、不要一键安装时：
+
+```js
+import { installWebExtendPluginVue2, createVueCliAxiosQuickInstallOptions } from 'web-extend-plugin-vue2'
+
+installWebExtendPluginVue2(
+  Vue,
+  router,
+  createVueCliAxiosQuickInstallOptions(router, { request, hostLayoutComponent: Layout, store }, { manifestBase: process.env.VUE_APP_BASE_API })
+).catch(console.warn)
+```
+
+**显式逐字段**（与旧版一致，清单路径默认来自 `defaultWebExtendPluginRuntime` / 环境变量）：
 
 ```js
 import { installWebExtendPluginVue2, createVueCliAxiosInstallOptions } from 'web-extend-plugin-vue2'
@@ -156,9 +210,11 @@ disposeWebPlugin('com.your.plugin.id')
 ## API 浏览
 
 - **具名导出**：与下述命名空间指向同一实现，便于 tree-shaking。
-- **`WebExtendPluginVue2`**：`install`、`runtime`（含 `bootstrapPlugins`、`resolveRuntimeOptions`、`wrapManifestFetchWithCache` 等）、`host`、`config`、`constants`、`components`、`presets`（`vueCliAxios`）。
+- **`WebExtendPluginVue2`**：`install`、`runtime`（含 `bootstrapPlugins`、`resolveRuntimeOptions`、`wrapManifestFetchWithCache` 等）、`host`、`config`、`constants`、`components`、`presets`（`vueCliAxios`，含 `createQuickInstallOptions`、`defaultJavaManifestListPath`）。另导出 **`installVueCliAxiosWebPlugins`**（一键安装）。
 
 更细的签名与说明以 **`index.d.ts`** 为准。
+
+**默认运行时常量与环境键名**统一在源码 **`src/core/public-config-defaults.ts`**（打包后通过 `defaultWebExtendPluginRuntime`、`webExtendPluginEnvKeys`、`WebExtendPluginVue2.config` 暴露），修改默认值或对照 `VITE_*` 时请只改该文件。
 
 ---
 

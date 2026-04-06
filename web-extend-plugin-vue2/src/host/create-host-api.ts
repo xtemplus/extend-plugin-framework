@@ -4,11 +4,14 @@
 import Vue from 'vue'
 import type { Component } from 'vue'
 import type { RouteConfig } from 'vue-router'
-import { HOST_PLUGIN_API_VERSION } from '../core/constants'
+import {
+  HOST_PLUGIN_API_VERSION,
+  defaultWebExtendPluginRuntime,
+  routeSynthNamePrefix
+} from '../core/public-config-defaults'
 import { registries } from '../core/plugin-registries'
 import { registerPluginTeardown } from '../core/plugin-teardown-registry'
 import { createRequestBridge } from './request-bridge'
-import { defaultWebExtendPluginRuntime } from '../core/default-runtime-config'
 import type {
   ApplyPluginMenuItemsFn,
   HostContext
@@ -91,7 +94,7 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
   function applyInternalRegister(rawRouteConfigs: RouteConfig[]) {
     const wrapped = rawRouteConfigs.map((r) => ({
       ...r,
-      name: r.name || `__wep_${pluginId}_${routeSynthSeq++}`,
+      name: r.name || `${routeSynthNamePrefix}${pluginId}_${routeSynthSeq++}`,
       meta: { ...(r.meta || {}), pluginId }
     }))
     if (typeof router.addRoute !== 'function') {

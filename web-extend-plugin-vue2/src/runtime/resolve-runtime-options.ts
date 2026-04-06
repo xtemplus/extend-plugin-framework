@@ -2,12 +2,16 @@
  * 合并用户、环境与默认配置得到运行时选项。
  */
 
-import { defaultWebExtendPluginRuntime } from '../core/default-runtime-config'
+import {
+  defaultWebExtendPluginRuntime,
+  webExtendPluginEnvKeys
+} from '../core/public-config-defaults'
 import { resolveBundledEnv, resolveBundledIsDev } from './env-resolve'
 import { resolveManifestModeFromInputs, resolveStaticManifestUrlFromInputs } from './manifest-mode'
 import { ensureLeadingPath, normalizeHost } from './path-host-utils'
 
 const DEF = defaultWebExtendPluginRuntime
+const EK = webExtendPluginEnvKeys
 
 export type ApplyPluginMenuItemsFn = (ctx: {
   pluginId: string
@@ -77,18 +81,18 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
   const manifestBaseRaw =
     user.manifestBase !== undefined && user.manifestBase !== ''
       ? String(user.manifestBase)
-      : resolveBundledEnv('VITE_FRONTEND_PLUGIN_BASE', DEF.manifestBase) || DEF.manifestBase
+      : resolveBundledEnv(EK.manifestBase, DEF.manifestBase) || DEF.manifestBase
 
   const manifestListPath = ensureLeadingPath(
     user.manifestListPath !== undefined && user.manifestListPath !== ''
       ? user.manifestListPath
-      : resolveBundledEnv('VITE_WEB_PLUGIN_MANIFEST_PATH', DEF.manifestListPath)
+      : resolveBundledEnv(EK.manifestListPath, DEF.manifestListPath)
   )
 
   const defaultImplicitDevPluginIds = Array.isArray(user.defaultImplicitDevPluginIds)
     ? user.defaultImplicitDevPluginIds.map(String).filter(Boolean)
     : (() => {
-        const e = resolveBundledEnv('VITE_WEB_PLUGIN_IMPLICIT_DEV_IDS', '')
+        const e = resolveBundledEnv(EK.implicitDevIds, '')
         if (e) {
           return e
             .split(',')
@@ -102,7 +106,7 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     Array.isArray(user.allowedScriptHosts) && user.allowedScriptHosts.length > 0
       ? user.allowedScriptHosts.map((h: string) => normalizeHost(String(h))).filter(Boolean)
       : (() => {
-          const e = resolveBundledEnv('VITE_WEB_PLUGIN_ALLOWED_SCRIPT_HOSTS', '')
+          const e = resolveBundledEnv(EK.allowedScriptHosts, '')
           if (e) {
             return e
               .split(',')
@@ -116,7 +120,7 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     Array.isArray(user.bridgeAllowedPathPrefixes) && user.bridgeAllowedPathPrefixes.length > 0
       ? user.bridgeAllowedPathPrefixes.map((p: string) => ensureLeadingPath(p)).filter(Boolean)
       : (() => {
-          const e = resolveBundledEnv('VITE_WEB_PLUGIN_BRIDGE_PREFIXES', '')
+          const e = resolveBundledEnv(EK.bridgePrefixes, '')
           if (e) {
             return e
               .split(',')
@@ -135,11 +139,11 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     if (user.devFallbackStaticManifestUrl !== undefined && String(user.devFallbackStaticManifestUrl).trim() !== '') {
       return String(user.devFallbackStaticManifestUrl).trim()
     }
-    const e = resolveBundledEnv('VITE_WEB_PLUGIN_DEV_FALLBACK_MANIFEST_URL', '')
+    const e = resolveBundledEnv(EK.devFallbackManifestUrl, '')
     if (e) {
       return e.trim()
     }
-    return String(DEF.devFallbackStaticManifestUrl || '/web-plugins/plugins.manifest.json').trim()
+    return String(DEF.devFallbackStaticManifestUrl).trim()
   })()
 
   const hostLayoutComponent = user.hostLayoutComponent
@@ -149,7 +153,7 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
       return String(user.pluginRoutesParentName).trim()
     }
     if (hostLayoutComponent != null) {
-      return String(DEF.pluginRoutesParentName || '__wepPluginHost').trim()
+      return String(DEF.pluginRoutesParentName).trim()
     }
     return ''
   })()
@@ -157,9 +161,9 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
   const pluginMountRaw =
     user.pluginMountPath !== undefined && String(user.pluginMountPath).trim() !== ''
       ? String(user.pluginMountPath).trim()
-      : String(resolveBundledEnv('VITE_WEB_PLUGIN_MOUNT_PATH', '') || DEF.pluginMountPath || '/plugin').trim()
+      : String(resolveBundledEnv(EK.mountPath, '') || DEF.pluginMountPath).trim()
 
-  const pluginMountPath = ensureLeadingPath(pluginMountRaw || '/plugin')
+  const pluginMountPath = ensureLeadingPath(pluginMountRaw || DEF.pluginMountPath)
 
   const pluginHostRouteMeta =
     user.pluginHostRouteMeta !== undefined && user.pluginHostRouteMeta !== null
@@ -178,7 +182,7 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     if (user.devManifestFallback === true) {
       return true
     }
-    const envFlag = resolveBundledEnv('VITE_WEB_PLUGIN_DEV_MANIFEST_FALLBACK', '')
+    const envFlag = resolveBundledEnv(EK.devManifestFallback, '')
     if (envFlag === '0' || envFlag === 'false') {
       return false
     }
@@ -197,34 +201,36 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     devFallbackStaticManifestUrl,
     manifestFetchCredentials: resolveManifestCredentials(
       user.manifestFetchCredentials,
-      'VITE_WEB_PLUGIN_MANIFEST_CREDENTIALS',
+      EK.manifestCredentials,
       DEF.manifestFetchCredentials
     ),
     isDev: isDevResolved,
     webPluginDevOrigin:
-      user.webPluginDevOrigin !== undefined ? user.webPluginDevOrigin : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_ORIGIN', ''),
+      user.webPluginDevOrigin !== undefined
+        ? user.webPluginDevOrigin
+        : resolveBundledEnv(EK.webPluginDevOrigin, ''),
     webPluginDevIds:
-      user.webPluginDevIds !== undefined ? user.webPluginDevIds : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_IDS', ''),
+      user.webPluginDevIds !== undefined ? user.webPluginDevIds : resolveBundledEnv(EK.webPluginDevIds, ''),
     webPluginDevMapJson:
       user.webPluginDevMapJson !== undefined
         ? user.webPluginDevMapJson
-        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_MAP', ''),
+        : resolveBundledEnv(EK.webPluginDevMap, ''),
     webPluginDevEntryPath: ensureLeadingPath(
       user.webPluginDevEntryPath !== undefined && user.webPluginDevEntryPath !== ''
         ? user.webPluginDevEntryPath
-        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_ENTRY', DEF.webPluginDevEntryPath)
+        : resolveBundledEnv(EK.devEntry, DEF.webPluginDevEntryPath)
     ),
     devPingPath: ensureLeadingPath(
       user.devPingPath !== undefined && user.devPingPath !== ''
         ? user.devPingPath
-        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_PING_PATH', DEF.devPingPath)
+        : resolveBundledEnv(EK.devPing, DEF.devPingPath)
     ),
     devReloadSsePath: ensureLeadingPath(
       user.devReloadSsePath !== undefined && user.devReloadSsePath !== ''
         ? user.devReloadSsePath
-        : resolveBundledEnv('VITE_WEB_PLUGIN_DEV_SSE_PATH', DEF.devReloadSsePath)
+        : resolveBundledEnv(EK.devSse, DEF.devReloadSsePath)
     ),
-    devPingTimeoutMs: resolvePositiveInt(user.devPingTimeoutMs, 'VITE_WEB_PLUGIN_DEV_PING_TIMEOUT_MS', DEF.devPingTimeoutMs),
+    devPingTimeoutMs: resolvePositiveInt(user.devPingTimeoutMs, EK.devPingTimeout, DEF.devPingTimeoutMs),
     defaultImplicitDevPluginIds,
     allowedScriptHosts,
     bridgeAllowedPathPrefixes,

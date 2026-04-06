@@ -134,6 +134,7 @@ export function defineWebExtendPluginViteConfig(options = {}) {
         ...(command === 'build' ? [cssInjectedByJsPlugin()] : [])
       ],
       server: {
+        host: true,
         port: devPort,
         strictPort: true,
         cors: true,

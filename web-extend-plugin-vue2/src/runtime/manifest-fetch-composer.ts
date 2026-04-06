@@ -2,6 +2,7 @@
  * 清单拉取函数的组合工具：缓存、埋点等以**中间件**形式扩展，不侵入 `bootstrapPlugins` 核心逻辑，
  * 可组合的 `fetchManifest` 包装；入参/出参与 `resolveRuntimeOptions({ fetchManifest })` 一致。
  */
+import { defaultManifestFetchCache } from '../core/public-config-defaults'
 
 export type FetchWebPluginManifestContext = {
   manifestUrl: string
@@ -38,8 +39,11 @@ export function manifestFetchCacheMiddleware(options: ManifestFetchCacheOptions 
   }
 
   const storage = options.storage || 'memory'
-  const prefix = options.storageKeyPrefix || 'wep.manifestFetch.v1'
-  const maxEntries = typeof options.maxEntries === 'number' && options.maxEntries > 0 ? options.maxEntries : 50
+  const prefix = options.storageKeyPrefix || defaultManifestFetchCache.storageKeyPrefix
+  const maxEntries =
+    typeof options.maxEntries === 'number' && options.maxEntries > 0
+      ? options.maxEntries
+      : defaultManifestFetchCache.maxEntries
   const getNow = typeof options.now === 'function' ? options.now : () => Date.now()
   const cacheKeyFn =
     typeof options.cacheKey === 'function'

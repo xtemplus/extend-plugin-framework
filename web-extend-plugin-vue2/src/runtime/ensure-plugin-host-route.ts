@@ -1,6 +1,7 @@
 /**
  * 开箱：在未手工配置时，注册 `/plugin` + 宿主 Layout 的命名父路由，供 `router.addRoute(parentName, child)` 挂载插件页。
  */
+import { defaultWebExtendPluginRuntime } from '../core/public-config-defaults'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VueRouterLike = any
@@ -52,7 +53,8 @@ export function ensurePluginHostRoute(router: VueRouterLike, opts: Record<string
     )
     return
   }
-  let pathRaw = String(opts.pluginMountPath || '/plugin').trim().replace(/\/$/, '') || '/plugin'
+  const mountDefault = defaultWebExtendPluginRuntime.pluginMountPath
+  let pathRaw = String(opts.pluginMountPath || mountDefault).trim().replace(/\/$/, '') || mountDefault
   if (!pathRaw.startsWith('/')) {
     pathRaw = `/${pathRaw}`
   }

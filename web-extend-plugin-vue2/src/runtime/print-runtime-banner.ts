@@ -1,4 +1,4 @@
-import { HOST_PLUGIN_API_VERSION, RUNTIME_CONSOLE_LABEL } from '../core/constants'
+import { HOST_PLUGIN_API_VERSION, RUNTIME_CONSOLE_LABEL } from '../core/public-config-defaults'
 
 let _printed = false
 

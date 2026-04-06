@@ -1,7 +1,10 @@
 /**
  * 清单模式与静态清单 URL 配置解析（显式 options + VITE_* / PLUGIN_* 环境）。
  */
+import { defaultManifestMode, webExtendPluginEnvKeys } from '../core/public-config-defaults'
 import { resolveBundledEnv } from './env-resolve'
+
+const EK = webExtendPluginEnvKeys
 
 export function resolveManifestModeFromInputs(userMode: unknown): 'api' | 'static' {
   if (userMode !== undefined && userMode !== null && String(userMode).trim() !== '') {
@@ -10,14 +13,14 @@ export function resolveManifestModeFromInputs(userMode: unknown): 'api' | 'stati
       return s
     }
   }
-  const e = resolveBundledEnv('VITE_WEB_PLUGIN_MANIFEST_MODE', '')
+  const e = resolveBundledEnv(EK.manifestMode, '')
   if (e) {
     const s = String(e).trim().toLowerCase()
     if (s === 'static' || s === 'api') {
       return s
     }
   }
-  return 'api'
+  return defaultManifestMode
 }
 
 export function resolveStaticManifestUrlFromInputs(userUrl: unknown): string {
@@ -27,5 +30,5 @@ export function resolveStaticManifestUrlFromInputs(userUrl: unknown): string {
       return s
     }
   }
-  return String(resolveBundledEnv('VITE_WEB_PLUGIN_STATIC_MANIFEST_URL', '') || '').trim()
+  return String(resolveBundledEnv(EK.staticManifestUrl, '') || '').trim()
 }

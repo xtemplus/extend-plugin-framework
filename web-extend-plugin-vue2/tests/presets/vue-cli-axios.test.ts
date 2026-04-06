@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   createVueCliAxiosInstallOptions,
+  createVueCliAxiosQuickInstallOptions,
+  defaultVueCliJavaManifestListPath,
   resolveManifestPathUnderApiBase,
   unwrapNestedManifestBody,
   presetVueCliAxios
 } from '../../src/presets/vue-cli-axios'
 
 describe('presetVueCliAxios', () => {
-  it('exposes stable facade', () => {
+  it('exposes stable', () => {
     expect(presetVueCliAxios.id).toBe('vue-cli-axios')
     expect(presetVueCliAxios.createInstallOptions).toBe(createVueCliAxiosInstallOptions)
+    expect(presetVueCliAxios.createQuickInstallOptions).toBe(createVueCliAxiosQuickInstallOptions)
+    expect(presetVueCliAxios.defaultJavaManifestListPath).toBe(defaultVueCliJavaManifestListPath)
     expect(presetVueCliAxios.manifestPathForApiBase).toBe(resolveManifestPathUnderApiBase)
     expect(presetVueCliAxios.unwrapManifestBody).toBe(unwrapNestedManifestBody)
   })
@@ -91,5 +95,37 @@ describe('createVueCliAxiosInstallOptions', () => {
       cache: 'no-store'
     })
     expect((r.data as { plugins: unknown[] }).plugins).toHaveLength(1)
+  })
+})
+
+describe('createVueCliAxiosQuickInstallOptions', () => {
+  it('merges hostContext with router and store', () => {
+    const router = { r: 1 }
+    const store = { s: 1 }
+    const request = vi.fn(() => Promise.resolve({ plugins: [] }))
+    const opts = createVueCliAxiosQuickInstallOptions(
+      router,
+      {
+        request,
+        hostLayoutComponent: {},
+        store,
+        hostContext: { i18n: 'x' }
+      },
+      { manifestListPath: '/custom-list' }
+    ) as { hostContext: Record<string, unknown>; manifestListPath: string }
+    expect(opts.hostContext.router).toBe(router)
+    expect(opts.hostContext.store).toBe(store)
+    expect(opts.hostContext.i18n).toBe('x')
+    expect(opts.manifestListPath).toBe('/custom-list')
+  })
+
+  it('defaults manifestListPath to defaultVueCliJavaManifestListPath', () => {
+    const request = vi.fn(() => Promise.resolve({ plugins: [] }))
+    const opts = createVueCliAxiosQuickInstallOptions(
+      { navigate: vi.fn() },
+      { request, hostLayoutComponent: {} },
+      {}
+    ) as { manifestListPath: string }
+    expect(opts.manifestListPath).toBe(defaultVueCliJavaManifestListPath)
   })
 })

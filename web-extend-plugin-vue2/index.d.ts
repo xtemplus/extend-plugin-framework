@@ -82,6 +82,16 @@ export type OnPluginActivateErrorFn = (ctx: {
 }) => void | Promise<void>
 
 /** 宿主传入 `createHostApi` 的 `hostKit`（及 `resolveRuntimeOptions` 中同类字段） */
+/** {@link createVueCliAxiosQuickInstallOptions} / {@link installVueCliAxiosWebPlugins} 的宿主侧依赖 */
+export type VueCliAxiosQuickDeps = {
+  request: (config: Record<string, unknown>) => Promise<unknown>
+  hostLayoutComponent: unknown
+  store?: unknown
+  hostContext?: Record<string, unknown>
+  applyPluginMenuItems?: (ctx: { pluginId: string; items: Array<Record<string, unknown>> }) => void
+  revokePluginMenuItems?: (pluginId: string) => void
+}
+
 export type HostKitOptions = {
   /** `getBridge().request` 允许的URL路径前缀，须以 `/` 开头 */
   bridgeAllowedPathPrefixes?: string[]
@@ -226,6 +236,11 @@ export const WebExtendPluginVue2: Readonly<{
   config: Readonly<{
     defaultWebExtendPluginRuntime: Record<string, unknown>
     setWebExtendPluginEnv: (env: Record<string, unknown> | null | undefined) => void
+    webExtendPluginEnvKeys: Readonly<Record<string, string>>
+    defaultManifestFetchCache: Readonly<{ storageKeyPrefix: string; maxEntries: number }>
+    defaultManifestMode: string
+    routeSynthNamePrefix: string
+    peerMinimumVersions: Readonly<{ vue: string; vueRouter: string }>
   }>
   constants: Readonly<{ HOST_PLUGIN_API_VERSION: string; RUNTIME_CONSOLE_LABEL: string }>
   components: Readonly<{ ExtensionPoint: unknown }>
@@ -237,6 +252,12 @@ export const WebExtendPluginVue2: Readonly<{
         deps: { request: (config: Record<string, unknown>) => Promise<unknown> },
         extra?: Record<string, unknown>
       ) => Record<string, unknown>
+      createQuickInstallOptions: (
+        router: unknown,
+        deps: VueCliAxiosQuickDeps,
+        extra?: Record<string, unknown>
+      ) => Record<string, unknown>
+      defaultJavaManifestListPath: string
       manifestPathForApiBase: (manifestUrl: string, apiBase?: string) => string
       unwrapManifestBody: (body: unknown) => object | null
     }>
@@ -244,6 +265,19 @@ export const WebExtendPluginVue2: Readonly<{
 }>
 
 export const defaultWebExtendPluginRuntime: Record<string, unknown>
+
+/** 与 `resolveRuntimeOptions` / `build-env` 读取逻辑一致的环境变量键（文档与宿主检索用） */
+export const webExtendPluginEnvKeys: Readonly<Record<string, string>>
+
+export const defaultManifestFetchCache: Readonly<{ storageKeyPrefix: string; maxEntries: number }>
+
+export const defaultManifestMode: 'api'
+
+/** 无 name 的路由由 `createHostApi` 合成的名称前缀 */
+export const routeSynthNamePrefix: string
+
+/** 与 package.json peer 下限一致，供 CI / `test:peer-min` 对齐 */
+export const peerMinimumVersions: Readonly<{ vue: string; vueRouter: string }>
 
 /** 拉取清单并依次激活插件；浏览器环境执行 */
 export function bootstrapPlugins(
@@ -284,7 +318,24 @@ export function installWebExtendPluginVue2(
   options?: WebExtendPluginRuntimeOptions
 ): Promise<void>
 
+/** Vue CLI + axios 一键安装；默认 `exposeGlobalVue: true` 写入 `window.Vue` */
+export function installVueCliAxiosWebPlugins(
+  Vue: unknown,
+  router: unknown,
+  deps: VueCliAxiosQuickDeps,
+  extra?: WebExtendPluginRuntimeOptions & { exposeGlobalVue?: boolean }
+): Promise<void>
+
 export const ExtensionPoint: unknown
+
+/** 常见 Java 清单路径段，与 `manifestBase` 拼接 */
+export const defaultVueCliJavaManifestListPath: string
+
+export function createVueCliAxiosQuickInstallOptions(
+  router: unknown,
+  deps: VueCliAxiosQuickDeps,
+  extra?: Record<string, unknown>
+): Record<string, unknown>
 
 export function createVueCliAxiosInstallOptions(
   deps: { request: (config: Record<string, unknown>) => Promise<unknown> },
@@ -298,6 +349,8 @@ export const presetVueCliAxios: Readonly<{
   id: string
   description: string
   createInstallOptions: typeof createVueCliAxiosInstallOptions
+  createQuickInstallOptions: typeof createVueCliAxiosQuickInstallOptions
+  defaultJavaManifestListPath: typeof defaultVueCliJavaManifestListPath
   manifestPathForApiBase: typeof resolveManifestPathUnderApiBase
   unwrapManifestBody: typeof unwrapNestedManifestBody
 }>

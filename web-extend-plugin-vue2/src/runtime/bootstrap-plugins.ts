@@ -2,7 +2,7 @@
  * 拉取插件清单、加载入口脚本并调用各插件 `activator`。
  */
 import semver from 'semver'
-import { HOST_PLUGIN_API_VERSION } from '../core/constants'
+import { HOST_PLUGIN_API_VERSION, webExtendPluginEnvKeys } from '../core/public-config-defaults'
 import { setRevokePluginMenuItems } from '../core/host-menu-integration'
 import { defaultFetchWebPluginManifest } from './default-fetch-manifest'
 import { buildImplicitWebPluginDevMap, mergeDevMaps, parseWebPluginDevMapExplicit } from './dev-map'
@@ -24,7 +24,7 @@ function shouldShowBootstrapSummary(opts: { bootstrapSummary?: boolean }) {
   if (opts.bootstrapSummary === false) {
     return false
   }
-  const env = resolveBundledEnv('VITE_PLUGINS_BOOTSTRAP_SUMMARY', '')
+  const env = resolveBundledEnv(webExtendPluginEnvKeys.pluginsBootstrapSummary, '')
   if (env === '0' || env === 'false') {
     return false
   }
