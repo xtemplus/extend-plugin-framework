@@ -3,27 +3,6 @@ import { fetchStaticManifestViaHttp } from '../runtime/fetch-static-manifest'
 import { unwrapNestedManifestBody } from '../runtime/manifest-body'
 import { resolveManifestModeFromInputs, resolveStaticManifestUrlFromInputs } from '../runtime/manifest-mode'
 
-function resolveManifestPathUnderApiBase(manifestUrl: string, apiBase?: string) {
-  const base = String(
-    apiBase !== undefined
-      ? apiBase
-      : typeof process !== 'undefined' && process.env && process.env.VUE_APP_BASE_API
-        ? String(process.env.VUE_APP_BASE_API)
-        : ''
-  ).replace(/\/$/, '')
-
-  if (typeof window === 'undefined') {
-    return '/api/frontend-plugins'
-  }
-
-  const url = new URL(manifestUrl, window.location.origin)
-  let path = url.pathname + url.search
-  if (base && path.startsWith(base)) {
-    path = path.slice(base.length) || '/'
-  }
-  return path
-}
-
 function bridgePrefixesFromVueCliEnv(): string[] {
   const base = (
     typeof process !== 'undefined' && process.env && process.env.VUE_APP_BASE_API
@@ -51,23 +30,14 @@ export function createVueCliAxiosInstallOptions(
   const host = asRecord<Record<string, unknown>>(extra.host) || {}
   const mergedHost = { ...host }
 
-  const envBase = (
-    typeof process !== 'undefined' && process.env && process.env.VUE_APP_BASE_API
-      ? String(process.env.VUE_APP_BASE_API)
-      : ''
-  ).replace(/\/$/, '')
-
-  const userBase =
-    manifest.baseUrl !== undefined && String(manifest.baseUrl).trim() !== ''
-      ? String(manifest.baseUrl).replace(/\/$/, '')
-      : ''
-
-  const stripBase = userBase || envBase
-
   const fetchManifestApi = async (ctx: { manifestUrl: string; credentials: RequestCredentials }) => {
     try {
+      const manifestRequestUrl =
+        typeof window !== 'undefined'
+          ? new URL(String(ctx.manifestUrl), window.location.origin).toString()
+          : String(ctx.manifestUrl)
       const body = await request({
-        url: resolveManifestPathUnderApiBase(ctx.manifestUrl, stripBase),
+        url: manifestRequestUrl,
         method: 'get'
       })
       const data = unwrapNestedManifestBody(body)
@@ -105,7 +75,10 @@ export function createVueCliAxiosInstallOptions(
     ...extra,
     manifest: {
       ...manifest,
-      baseUrl: stripBase || undefined,
+      baseUrl:
+        manifest.baseUrl !== undefined && String(manifest.baseUrl).trim() !== ''
+          ? String(manifest.baseUrl).replace(/\/$/, '')
+          : undefined,
       listPath: manifest.listPath !== undefined ? manifest.listPath : listPath,
       source: manifestSource,
       staticUrl,

@@ -5,7 +5,7 @@ Vue 2 host runtime for web plugin bootstrap, route registration, host API inject
 ## Install
 
 ```bash
-npm i web-extend-plugin-vue2@0.3.5
+npm i web-extend-plugin-vue2@0.3.8
 ```
 
 Peer dependencies:
@@ -15,7 +15,7 @@ Peer dependencies:
 
 Published package:
 
-- `web-extend-plugin-vue2@0.3.5`
+- `web-extend-plugin-vue2@0.3.8`
 
 ## Public API
 
@@ -70,7 +70,7 @@ setWebExtendPluginEnv(import.meta.env)
 
 installWebExtendPluginVue2(Vue, router, {
   manifest: {
-    baseUrl: '/fp-api'
+    baseUrl: '/api'
   }
 }).catch(console.warn)
 ```
@@ -80,8 +80,8 @@ Minimal host config usually starts with only:
 ```js
 installWebExtendPluginVue2(Vue, router, {
   manifest: {
-    baseUrl: '/fp-api',
-    listPath: '/api/frontend-plugins'
+    baseUrl: '/api',
+    listPath: '/frontend-plugins'
   },
   host: {
     bridge: {
@@ -109,6 +109,7 @@ installWebExtendPluginVue2(
     { request },
     {
       manifest: {
+        baseUrl: '/api',
         listPath: '/frontend-plugins'
       },
       host: {
@@ -203,8 +204,8 @@ Prefer the host bridge model instead:
 
 Core options most hosts need:
 
-- `manifest.baseUrl`: API prefix, default `/fp-api`
-- `manifest.listPath`: manifest path segment, default `/api/frontend-plugins`
+- `manifest.baseUrl`: manifest request base URL, default `/dev-api`
+- `manifest.listPath`: manifest path segment, default `/web-plugin`
 - `manifest.source`: `api` or `static`
 - `manifest.staticUrl`: required when `manifest.source` is `static`
 - `host.scriptHosts`: allowed remote script hosts
@@ -231,8 +232,8 @@ Development-only options:
 - `dev.pingPath`: dev server health-check path
 - `dev.reloadSsePath`: SSE path for dev reload notifications
 - `dev.pingTimeoutMs`: dev server ping timeout
-- `dev.manifestFallback.enabled`: whether dev mode falls back to a static manifest
-- `dev.manifestFallback.staticUrl`: default `/web-plugins/plugins.manifest.json`
+- `dev.manifestFallback.enabled`: whether dev mode falls back to a static manifest, default `false`
+- `dev.manifestFallback.staticUrl`: no default; must be provided explicitly when fallback is enabled
 - `dev.bootstrapSummary`: whether to print bootstrap summary logs
 
 Advanced hooks:
@@ -251,4 +252,5 @@ Advanced hooks:
 - `host.route.parentName` has no implicit default. Pass it explicitly when you want child routes mounted under a named parent route.
 - `installWebExtendPluginVue2` no longer accepts install-only wrapper options. Runtime environment injection should use `setWebExtendPluginEnv(...)`.
 - Vue CLI preset helpers were reduced to a single builder: `createVueCliAxiosInstallOptions`.
+- `createVueCliAxiosInstallOptions` no longer rewrites `manifest.baseUrl + manifest.listPath`; the configured manifest URL is requested as-is.
 - If you are unsure where to start, configure only the core options first. Most projects do not need the advanced hooks.

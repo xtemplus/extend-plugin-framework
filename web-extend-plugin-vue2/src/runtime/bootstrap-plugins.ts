@@ -202,6 +202,17 @@ function resolveManifestRequest(
   }
 }
 
+function isResolvedRuntimeOptions(input: unknown): input is Record<string, unknown> {
+  return !!(
+    input &&
+    typeof input === 'object' &&
+    !Array.isArray(input) &&
+    ('manifestBase' in (input as Record<string, unknown>) ||
+      'manifestListPath' in (input as Record<string, unknown>) ||
+      'fetchManifest' in (input as Record<string, unknown>))
+  )
+}
+
 export async function bootstrapPlugins(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   router: any,
@@ -215,7 +226,7 @@ export async function bootstrapPlugins(
   }
   printRuntimeBannerOnce()
   clearActivatedPluginIds()
-  const opts = resolveRuntimeOptions(runtimeOptions)
+  const opts = isResolvedRuntimeOptions(runtimeOptions) ? runtimeOptions : resolveRuntimeOptions(runtimeOptions)
   const showBootstrapSummary = shouldShowBootstrapSummary(opts)
   setPluginBootstrapRouter(router)
   ensurePluginHostRoute(router, opts)

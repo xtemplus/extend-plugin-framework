@@ -267,7 +267,7 @@ function resolveDevManifestFallback(dev: DevOptionsInput, manifestMode: 'api' | 
   if (envFlag === '1' || envFlag === 'true') {
     return true
   }
-  return isDev
+  return false
 }
 
 export function resolveRuntimeOptions(

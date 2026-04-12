@@ -45,8 +45,8 @@ export const defaultManifestFetchCache = {
 export const routeSynthNamePrefix = '__wep_'
 
 export const defaultWebExtendPluginRuntime = {
-  manifestBase: '/fp-api',
-  manifestListPath: '/api/frontend-plugins',
+  manifestBase: '/dev-api',
+  manifestListPath: '/web-plugin',
   manifestFetchCredentials: 'include' as RequestCredentials,
   devPingPath: '/__web_plugin_dev_ping',
   devReloadSsePath: '/__web_plugin_reload_stream',
@@ -56,5 +56,5 @@ export const defaultWebExtendPluginRuntime = {
   allowedScriptHosts: ['localhost', '127.0.0.1', '::1'],
   bridgeAllowedPathPrefixes: ['/api/'],
   pluginMountPath: '/plugin',
-  devFallbackStaticManifestUrl: '/web-plugins/plugins.manifest.json'
+  devFallbackStaticManifestUrl: ''
 }
