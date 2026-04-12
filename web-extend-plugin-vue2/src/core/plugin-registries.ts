@@ -1,8 +1,7 @@
 /**
- * 宿主侧响应式注册表：扩展点槽位（供布局与 `ExtensionPoint` 消费）。
- * 菜单数据由宿主在 `applyPluginMenuItems` 中自行并入其路由/菜单 state，框架不维护平行菜单列表。
+ * Host-side reactive registries for extension-point slot components.
+ * Menus/sidebar mapping stays on the host and is not duplicated here.
  */
-import Vue from 'vue'
 
 export type SlotRegistryItem = {
   pluginId: string
@@ -13,11 +12,30 @@ export type SlotRegistryItem = {
 
 export type PluginRegistriesShape = {
   slots: Record<string, SlotRegistryItem[]>
-  /** 槽位变更计数；缓解 Vue2 对动态 `Vue.set(slots, key)` 的依赖收集不完整。 */
   slotRevision: number
+  __wepObservedBy__?: unknown
 }
 
-export const registries = Vue.observable<PluginRegistriesShape>({
+export const registries: PluginRegistriesShape = {
   slots: {},
   slotRevision: 0
-})
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function ensureRegistriesReactive(VueLike: any): PluginRegistriesShape {
+  if (!VueLike || typeof VueLike.observable !== 'function') {
+    return registries
+  }
+  if (registries.__wepObservedBy__ === VueLike) {
+    return registries
+  }
+
+  VueLike.observable(registries)
+  Object.defineProperty(registries, '__wepObservedBy__', {
+    value: VueLike,
+    configurable: true,
+    enumerable: false,
+    writable: true
+  })
+  return registries
+}

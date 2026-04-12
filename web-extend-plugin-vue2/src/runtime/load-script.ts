@@ -4,7 +4,21 @@
 
 const loadScriptMemo = new Map<string, Promise<void>>()
 
-export function loadScript(src: string): Promise<void> {
+function markScriptOwnership(script: HTMLScriptElement, pluginId?: string) {
+  if (pluginId) {
+    script.setAttribute('data-plugin-asset', pluginId)
+  }
+}
+
+export function clearLoadedScriptMemo(src?: string) {
+  if (typeof src === 'string' && src) {
+    loadScriptMemo.delete(src)
+    return
+  }
+  loadScriptMemo.clear()
+}
+
+export function loadScript(src: string, pluginId?: string): Promise<void> {
   if (typeof document === 'undefined') {
     return Promise.reject(new Error('loadScript: no document'))
   }
@@ -16,6 +30,7 @@ export function loadScript(src: string): Promise<void> {
     for (let i = 0; i < scripts.length; i++) {
       const el = scripts[i]
       if (el.src === src) {
+        markScriptOwnership(el, pluginId)
         if (el.getAttribute('data-wep-loaded') === 'true') {
           resolve()
           return
@@ -35,6 +50,7 @@ export function loadScript(src: string): Promise<void> {
     const s = document.createElement('script')
     s.async = true
     s.src = src
+    markScriptOwnership(s, pluginId)
     s.onload = () => {
       s.setAttribute('data-wep-loaded', 'true')
       resolve()

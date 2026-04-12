@@ -27,7 +27,7 @@
 </template>
 
 <script>
-import { ExtensionPoint } from '@extend-plugin-framework/web-extend-plugin-vue2'
+import { ExtensionPoint } from 'web-extend-plugin-vue2'
 
 export default {
   name: 'Home',

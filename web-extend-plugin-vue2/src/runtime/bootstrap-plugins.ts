@@ -3,7 +3,8 @@
  */
 import semver from 'semver'
 import { HOST_PLUGIN_API_VERSION, webExtendPluginEnvKeys } from '../core/public-config-defaults'
-import { setRevokePluginMenuItems } from '../core/host-menu-integration'
+import { setPluginBootstrapRouter } from '../host/plugin-bootstrap-router'
+import { disposeWebPlugin } from '../host/dispose-web-plugin'
 import { defaultFetchWebPluginManifest } from './default-fetch-manifest'
 import { buildImplicitWebPluginDevMap, mergeDevMaps, parseWebPluginDevMapExplicit } from './dev-map'
 import { startPluginDevSseForMap } from './dev-reload-sse'
@@ -16,6 +17,11 @@ import { ensurePluginHostRoute } from './ensure-plugin-host-route'
 import { freezeShallowHostContext } from '../core/host-context'
 import { resolveRuntimeOptions } from './resolve-runtime-options'
 import { resolveStaticManifestUrlForFetch } from './resolve-static-manifest-url'
+import {
+  clearActivatedPluginIds,
+  markPluginActivated,
+  markPluginDeactivated
+} from './plugin-activation-registry'
 
 function shouldShowBootstrapSummary(opts: { bootstrapSummary?: boolean }) {
   if (opts.bootstrapSummary === true) {
@@ -55,7 +61,7 @@ async function loadPluginEntry(
     } catch (e) {
       console.warn('[wep] dev import failed, trying manifest entryUrl', p.id, e)
       if (entryUrl && isScriptHostAllowed(entryUrl, hostSet)) {
-        await loadScript(entryUrl)
+        await loadScript(entryUrl, p.id)
       }
       return
     }
@@ -65,7 +71,49 @@ async function loadPluginEntry(
     console.warn('[wep] skip (entryUrl not allowed)', p.id, entryUrl)
     return
   }
-  await loadScript(entryUrl)
+  await loadScript(entryUrl, p.id)
+}
+
+type ManifestPluginEntry = {
+  id: string
+  priority?: unknown
+  engines?: { host?: string }
+  entryUrl?: string
+}
+
+function coercePriority(value: unknown) {
+  if (value === null || value === undefined) {
+    return null
+  }
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function sortByPriority(plugins: ManifestPluginEntry[]) {
+  return plugins
+    .map((entry, index) => ({
+      entry,
+      priority: coercePriority(entry.priority),
+      index
+    }))
+    .sort((a, b) => {
+      const aHas = a.priority !== null
+      const bHas = b.priority !== null
+      if (!aHas && !bHas) {
+        return a.index - b.index
+      }
+      if (!aHas) {
+        return 1
+      }
+      if (!bHas) {
+        return -1
+      }
+      if (a.priority! !== b.priority!) {
+        return a.priority! - b.priority!
+      }
+      return a.index - b.index
+    })
+    .map((decorated) => decorated.entry)
 }
 
 export async function bootstrapPlugins(
@@ -80,10 +128,9 @@ export async function bootstrapPlugins(
     return
   }
   printRuntimeBannerOnce()
+  clearActivatedPluginIds()
   const opts = resolveRuntimeOptions(runtimeOptions || {})
-  setRevokePluginMenuItems(
-    typeof opts.revokePluginMenuItems === 'function' ? opts.revokePluginMenuItems : undefined
-  )
+  setPluginBootstrapRouter(router)
   ensurePluginHostRoute(router, opts)
   const base = String(opts.manifestBase).replace(/\/$/, '')
   const isStatic = opts.manifestMode === 'static'
@@ -154,7 +201,8 @@ export async function bootstrapPlugins(
   startPluginDevSseForMap(devMap, opts.isDev, hostSet, opts.devReloadSsePath)
 
   const frozenHostContext = freezeShallowHostContext(
-    opts.hostContext !== undefined ? opts.hostContext : undefined
+    opts.hostContext !== undefined ? opts.hostContext : undefined,
+    opts.hostCapabilities && typeof opts.hostCapabilities === 'object' ? opts.hostCapabilities : undefined
   )
 
   const hostKit: Record<string, unknown> = {
@@ -168,11 +216,8 @@ export async function bootstrapPlugins(
     ...(typeof opts.adaptRouteDeclarations === 'function'
       ? { adaptRouteDeclarations: opts.adaptRouteDeclarations }
       : {}),
-    ...(typeof opts.applyPluginMenuItems === 'function'
-      ? { applyPluginMenuItems: opts.applyPluginMenuItems }
-      : {}),
-    ...(typeof opts.revokePluginMenuItems === 'function'
-      ? { revokePluginMenuItems: opts.revokePluginMenuItems }
+    ...(typeof opts.onPluginRoutesContributed === 'function'
+      ? { onPluginRoutesContributed: opts.onPluginRoutesContributed }
       : {})
   }
 
@@ -188,7 +233,7 @@ export async function bootstrapPlugins(
     }
     return
   }
-  const data = manifestResult.data as { hostPluginApiVersion?: string; plugins?: object[] } | null | undefined
+  const data = manifestResult.data as { hostPluginApiVersion?: string; plugins?: ManifestPluginEntry[] } | null | undefined
   if (!data) {
     if (shouldShowBootstrapSummary(opts)) {
       console.info('[wep] bootstrap_summary', { ok: false, reason: 'manifest_empty_body' })
@@ -202,35 +247,45 @@ export async function bootstrapPlugins(
     const maj = coerced ? coerced.major : 0
     const range = `^${maj}.0.0`
     if (!semver.satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
-      console.warn('[wep] host API version mismatch', {
+      console.warn('[wep] manifest host API version mismatch; skip bootstrap', {
         host: HOST_PLUGIN_API_VERSION,
         manifest: apiVer
       })
+      if (shouldShowBootstrapSummary(opts)) {
+        console.info('[wep] bootstrap_summary', {
+          ok: false,
+          reason: 'manifest_host_api_version_mismatch'
+        })
+      }
+      return
     }
   }
 
   window.__PLUGIN_ACTIVATORS__ = window.__PLUGIN_ACTIVATORS__ || {}
 
-  const plugins = data.plugins || []
+  const originalPlugins = data.plugins || []
+  const plugins = sortByPriority(originalPlugins)
   if (plugins.length === 0) {
     const hint = isStatic ? 'check static JSON file and plugins[]' : 'check backend and URL'
     console.info('[wep] empty plugin manifest — ' + hint, manifestUrlUsed)
   }
 
   const summary = {
-    manifestCount: plugins.length,
+    manifestCount: originalPlugins.length,
     activated: 0,
-    skipEngines: 0,
+    skipApiVersion: 0,
     skipLoad: 0,
     skipNoActivator: 0,
     activateFail: 0
   }
 
-  for (const p of plugins as Array<{ id: string; engines?: { host?: string }; entryUrl?: string }>) {
+  for (const p of plugins) {
     const range = p.engines && p.engines.host
     if (range && !semver.satisfies(HOST_PLUGIN_API_VERSION, range, { includePrerelease: true })) {
-      console.warn('[wep] skip plugin (engines.host)', p.id, range)
-      summary.skipEngines++
+      console.warn('[wep] skip plugin (engines.host)', p.id, range, {
+        host: HOST_PLUGIN_API_VERSION
+      })
+      summary.skipApiVersion++
       continue
     }
     const entryUrl = p.entryUrl
@@ -269,6 +324,11 @@ export async function bootstrapPlugins(
     const hostApi = createHostApiFactory(p.id, router, hostKit)
     try {
       await Promise.resolve(activator(hostApi, { pluginRecord }))
+      markPluginActivated(p.id)
+      const teardownCapableHostApi = hostApi as { onTeardown?: (pluginId: string, fn: () => void) => void }
+      if (typeof teardownCapableHostApi.onTeardown === 'function') {
+        teardownCapableHostApi.onTeardown(p.id, () => markPluginDeactivated(p.id))
+      }
       summary.activated++
       if (typeof opts.onAfterPluginActivate === 'function') {
         await Promise.resolve(
@@ -282,6 +342,11 @@ export async function bootstrapPlugins(
       }
     } catch (e) {
       console.error('[wep] activate failed', p.id, e)
+      try {
+        disposeWebPlugin(p.id)
+      } catch (disposeErr) {
+        console.warn('[wep] rollback failed after activation error', p.id, disposeErr)
+      }
       summary.activateFail++
       if (typeof opts.onPluginActivateError === 'function') {
         try {

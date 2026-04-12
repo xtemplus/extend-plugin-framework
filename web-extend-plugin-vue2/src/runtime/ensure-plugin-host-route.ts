@@ -1,5 +1,6 @@
 /**
- * 开箱：在未手工配置时，注册 `/plugin` + 宿主 Layout 的命名父路由，供 `router.addRoute(parentName, child)` 挂载插件页。
+ * 当 `ensurePluginHostRoute === true` 且提供 `pluginRoutesParentName` + `hostLayoutComponent` 时，
+ * 注册 `pluginMountPath` + Layout 的命名父路由，供 `router.addRoute(parentName, child)` 挂载插件页。
  */
 import { defaultWebExtendPluginRuntime } from '../core/public-config-defaults'
 
@@ -33,7 +34,7 @@ function walkRouteNames(routes: unknown[] | undefined, name: string): boolean {
 }
 
 export function ensurePluginHostRoute(router: VueRouterLike, opts: Record<string, unknown>) {
-  if (opts.ensurePluginHostRoute === false) {
+  if (opts.ensurePluginHostRoute !== true) {
     return
   }
   if (!router || typeof router.addRoute !== 'function') {

@@ -6,6 +6,8 @@ import {
   defaultWebExtendPluginRuntime,
   webExtendPluginEnvKeys
 } from '../core/public-config-defaults'
+import type { HostCapabilities } from '../core/host-component-registry'
+import type { PluginRouteSnapshot } from '../host/plugin-route-snapshots'
 import { resolveBundledEnv, resolveBundledIsDev } from './env-resolve'
 import { resolveManifestModeFromInputs, resolveStaticManifestUrlFromInputs } from './manifest-mode'
 import { ensureLeadingPath, normalizeHost } from './path-host-utils'
@@ -13,16 +15,7 @@ import { ensureLeadingPath, normalizeHost } from './path-host-utils'
 const DEF = defaultWebExtendPluginRuntime
 const EK = webExtendPluginEnvKeys
 
-export type ApplyPluginMenuItemsFn = (ctx: {
-  pluginId: string
-  items: Array<Record<string, unknown>>
-}) => void
-
-export type RevokePluginMenuItemsFn = (pluginId: string) => void
-
 /** 宿主注入、插件只读的依赖载体（如 Vuex、i18n、业务 API）；勿放不可序列化且会随插件变化的闭包 secrets */
-export type HostContext = Readonly<Record<string, unknown>>
-
 export type OnBeforePluginActivateFn = (ctx: {
   pluginId: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +36,14 @@ export type OnPluginActivateErrorFn = (ctx: {
   error: unknown
   pluginRecord: Readonly<Record<string, unknown>>
   hostApi: unknown
+}) => void | Promise<void>
+
+export type OnPluginRoutesContributedFn = (ctx: {
+  pluginId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any
+  routes: ReadonlyArray<Record<string, unknown>>
+  contributedRoutes: ReadonlyArray<PluginRouteSnapshot>
 }) => void | Promise<void>
 
 function resolveManifestCredentials(
@@ -148,15 +149,10 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
 
   const hostLayoutComponent = user.hostLayoutComponent
 
-  const pluginRoutesParentName = (() => {
-    if (user.pluginRoutesParentName !== undefined) {
-      return String(user.pluginRoutesParentName).trim()
-    }
-    if (hostLayoutComponent != null) {
-      return String(DEF.pluginRoutesParentName).trim()
-    }
-    return ''
-  })()
+  const pluginRoutesParentName =
+    user.pluginRoutesParentName !== undefined && String(user.pluginRoutesParentName).trim() !== ''
+      ? String(user.pluginRoutesParentName).trim()
+      : ''
 
   const pluginMountRaw =
     user.pluginMountPath !== undefined && String(user.pluginMountPath).trim() !== ''
@@ -170,7 +166,7 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
       ? user.pluginHostRouteMeta
       : undefined
 
-  const ensurePluginHostRoute = user.ensurePluginHostRoute !== false
+  const ensurePluginHostRoute = user.ensurePluginHostRoute === true
 
   const devManifestFallback = (() => {
     if (manifestMode === 'static') {
@@ -248,17 +244,20 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     ...(typeof user.adaptRouteDeclarations === 'function'
       ? { adaptRouteDeclarations: user.adaptRouteDeclarations }
       : {}),
-    ...(typeof user.applyPluginMenuItems === 'function'
-      ? { applyPluginMenuItems: user.applyPluginMenuItems as ApplyPluginMenuItemsFn }
-      : {}),
-    ...(typeof user.revokePluginMenuItems === 'function'
-      ? { revokePluginMenuItems: user.revokePluginMenuItems as RevokePluginMenuItemsFn }
+    ...(typeof user.onPluginRoutesContributed === 'function'
+      ? { onPluginRoutesContributed: user.onPluginRoutesContributed as OnPluginRoutesContributedFn }
       : {}),
     ...(user.hostContext !== undefined &&
     user.hostContext !== null &&
     typeof user.hostContext === 'object' &&
     !Array.isArray(user.hostContext)
       ? { hostContext: user.hostContext as Record<string, unknown> }
+      : {}),
+    ...(user.hostCapabilities !== undefined &&
+    user.hostCapabilities !== null &&
+    typeof user.hostCapabilities === 'object' &&
+    !Array.isArray(user.hostCapabilities)
+      ? { hostCapabilities: user.hostCapabilities as HostCapabilities }
       : {}),
     ...(typeof user.onBeforePluginActivate === 'function'
       ? { onBeforePluginActivate: user.onBeforePluginActivate as OnBeforePluginActivateFn }

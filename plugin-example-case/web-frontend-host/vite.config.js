@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: ['VITE_', 'PLUGIN_'],
     plugins: [vue2()],
     resolve: {
-      dedupe: ['vue', 'vue-router', '@extend-plugin-framework/web-extend-plugin-vue2'],
+      dedupe: ['vue', 'vue-router', 'web-extend-plugin-vue2'],
       alias: {
         '@': path.resolve(__dirname, 'src')
       }

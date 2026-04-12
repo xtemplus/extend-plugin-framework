@@ -1,5 +1,5 @@
 /**
- * 构造插件 `activator(hostApi)` 使用的宿主 API：路由、菜单、扩展点、资源与受控请求桥。
+ * 构造插件 `activator(hostApi)` 使用的宿主 API：路由、扩展点、资源与受控请求桥。
  */
 import Vue from 'vue'
 import type { Component } from 'vue'
@@ -9,16 +9,58 @@ import {
   defaultWebExtendPluginRuntime,
   routeSynthNamePrefix
 } from '../core/public-config-defaults'
-import { registries } from '../core/plugin-registries'
+import {
+  getHostComponent,
+  getHostComponentMeta,
+  getHostModule,
+  getHostModuleMeta
+} from '../core/host-component-registry'
+import { ensureRegistriesReactive, registries } from '../core/plugin-registries'
 import { registerPluginTeardown } from '../core/plugin-teardown-registry'
 import { createRequestBridge } from './request-bridge'
-import type {
-  ApplyPluginMenuItemsFn,
-  HostContext
-} from '../runtime/resolve-runtime-options'
+import type { HostContext } from '../core/host-context'
+import { recordPluginTopRoutes } from './plugin-route-registry'
+import {
+  type PluginRouteSnapshot,
+  recordContributedRoutesForPlugin,
+  getContributedRoutesForPlugin,
+  clearContributedRoutesForPlugin
+} from './plugin-route-snapshots'
 
 let slotItemKeySeq = 0
 let routeSynthSeq = 0
+
+type RegisteredTopRoute = {
+  name: string
+  dispose?: (() => void) | undefined
+}
+
+function decorateRouteTreeWithPluginMeta(pluginId: string, route: RouteConfig): RouteConfig {
+  const meta =
+    route.meta && typeof route.meta === 'object' && !Array.isArray(route.meta)
+      ? (route.meta as Record<string, unknown>)
+      : {}
+  const wepMeta =
+    meta.__wep && typeof meta.__wep === 'object' && !Array.isArray(meta.__wep)
+      ? (meta.__wep as Record<string, unknown>)
+      : {}
+
+  const nextChildren = Array.isArray(route.children)
+    ? route.children.map((child) => decorateRouteTreeWithPluginMeta(pluginId, child as RouteConfig))
+    : route.children
+
+  return {
+    ...route,
+    meta: {
+      ...meta,
+      __wep: {
+        ...wepMeta,
+        pluginId
+      }
+    },
+    ...(nextChildren ? { children: nextChildren } : {})
+  }
+}
 
 function analyzeRouteInputTree(nodes: unknown[]) {
   let hasDecl = false
@@ -68,9 +110,15 @@ export type HostKitOptions = Record<string, unknown> & {
     router: any
     declarations: ReadonlyArray<object>
   }) => RouteConfig[]
-  applyPluginMenuItems?: ApplyPluginMenuItemsFn
   /** 由 bootstrap 注入的浅冻结上下文；勿在 `createHostApi` 外重复设置 */
   hostContext?: HostContext
+  /** 后置钩子：插件贡献的路由注册完成后触发 */
+  onPluginRoutesContributed?: (ctx: {
+    pluginId: string
+    router: any
+    routes: ReadonlyArray<RouteConfig>
+    contributedRoutes: ReadonlyArray<PluginRouteSnapshot>
+  }) => void
 }
 
 /**
@@ -91,23 +139,69 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
       ? hostKitOptions.pluginRoutesParentName.trim()
       : ''
 
+  function rollbackRegisteredTopRoutes(routes: RegisteredTopRoute[]) {
+    for (let i = routes.length - 1; i >= 0; i--) {
+      const route = routes[i]
+
+      if (typeof route.dispose === 'function') {
+        try {
+          route.dispose()
+          continue
+        } catch (e) {
+          console.warn('[wep] rollback route disposer failed', route.name, e)
+        }
+      }
+
+      if (typeof router.removeRoute === 'function') {
+        try {
+          router.removeRoute(route.name)
+        } catch (e) {
+          console.warn('[wep] rollback removeRoute failed', route.name, e)
+        }
+      }
+    }
+  }
+
   function applyInternalRegister(rawRouteConfigs: RouteConfig[]) {
     const wrapped = rawRouteConfigs.map((r) => ({
-      ...r,
-      name: r.name || `${routeSynthNamePrefix}${pluginId}_${routeSynthSeq++}`,
-      meta: { ...(r.meta || {}), pluginId }
+      ...decorateRouteTreeWithPluginMeta(pluginId, r),
+      name: r.name || `${routeSynthNamePrefix}${pluginId}_${routeSynthSeq++}`
     }))
     if (typeof router.addRoute !== 'function') {
       throw new Error('[wep] vue-router 3.5+ 必需：请使用 router.addRoute（不再支持 addRoutes）')
     }
-    if (parentName) {
-      for (const r of wrapped) {
-        router.addRoute(parentName, r)
+    const registeredTopRoutes: RegisteredTopRoute[] = []
+    try {
+      if (parentName) {
+        for (const r of wrapped) {
+          const dispose = router.addRoute(parentName, r)
+          registeredTopRoutes.push({
+            name: String(r.name),
+            dispose: typeof dispose === 'function' ? dispose : undefined
+          })
+        }
+      } else {
+        for (const r of wrapped) {
+          const dispose = router.addRoute(r)
+          registeredTopRoutes.push({
+            name: String(r.name),
+            dispose: typeof dispose === 'function' ? dispose : undefined
+          })
+        }
       }
-    } else {
-      for (const r of wrapped) {
-        router.addRoute(r)
-      }
+    } catch (e) {
+      rollbackRegisteredTopRoutes(registeredTopRoutes)
+      throw e
+    }
+    recordPluginTopRoutes(pluginId, registeredTopRoutes)
+    const contributedRoutes = recordContributedRoutesForPlugin(pluginId, wrapped)
+    if (contributedRoutes.length > 0 && typeof hostKitOptions.onPluginRoutesContributed === 'function') {
+      hostKitOptions.onPluginRoutesContributed({
+        pluginId,
+        router,
+        routes: wrapped,
+        contributedRoutes
+      })
     }
   }
 
@@ -135,6 +229,14 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
     hostKitOptions.hostContext != null && typeof hostKitOptions.hostContext === 'object'
       ? (hostKitOptions.hostContext as HostContext)
       : Object.freeze({})
+  const hostVue = hostContext && (hostContext as Record<string, unknown>).Vue
+  const VueRuntime = hostVue || Vue
+
+  ensureRegistriesReactive(VueRuntime)
+
+  registerPluginTeardown(pluginId, () => {
+    clearContributedRoutesForPlugin(pluginId)
+  })
 
   return {
     hostPluginApiVersion: HOST_PLUGIN_API_VERSION,
@@ -190,29 +292,12 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
       }
     },
 
-    registerMenuItems(items: Record<string, unknown>[]) {
-      const apply = hostKitOptions.applyPluginMenuItems
-      if (typeof apply !== 'function') {
-        throw new Error(
-          '[wep] registerMenuItems 需要宿主在 resolveRuntimeOptions 中提供 applyPluginMenuItems，将菜单数据并入宿主侧栏/目录 state（框架不再维护 registries.menus）'
-        )
-      }
-      const list = Array.isArray(items) ? items : []
-      const enriched = list.map((item) => ({ ...item, pluginId })) as Array<
-        Record<string, unknown> & { pluginId: string }
-      >
-      enriched.sort(
-        (a, b) => (a.order != null ? Number(a.order) : 0) - (b.order != null ? Number(b.order) : 0)
-      )
-      apply({ pluginId, items: enriched })
-    },
-
     registerSlotComponents(pointId: string, components: Array<{ component: Component; priority?: number }>) {
       if (!pointId) {
         return
       }
       if (!registries.slots[pointId]) {
-        Vue.set(registries.slots, pointId, [])
+        VueRuntime.set(registries.slots, pointId, [])
       }
       const list = registries.slots[pointId]
       for (const c of components) {
@@ -246,6 +331,16 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
     registerSanitizedHtmlSnippet() {
       throw new Error('registerSanitizedHtmlSnippet is not enabled')
     },
+
+    getContributedRoutes: () => getContributedRoutesForPlugin(pluginId),
+
+    getHostModule,
+
+    getHostModuleMeta,
+
+    getHostComponent,
+
+    getHostComponentMeta,
 
     getBridge: () => bridge,
 

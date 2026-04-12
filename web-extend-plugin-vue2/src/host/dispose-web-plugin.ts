@@ -1,11 +1,13 @@
 /**
- * 卸载单个插件：执行 teardown、清理注册表与 activator、移除带 `data-plugin-asset` 的 DOM。
- * 注意：Vue Router 3 无公开 `removeRoute`，动态路由通常需整页刷新或宿主自行维护。
+ * 卸载单个插件：执行 teardown、移除该插件登记的动态路由、清理注册表与 activator、移除带 `data-plugin-asset` 的 DOM。
+ * 优先使用 `addRoute()` 返回的 disposer；必要时回退 `router.removeRoute(name)`。
  */
 import Vue from 'vue'
-import { revokePluginMenusIfConfigured } from '../core/host-menu-integration'
+import { getPluginBootstrapRouter } from './plugin-bootstrap-router'
+import { removeRegisteredRoutesForPlugin } from './plugin-route-registry'
 import { registries } from '../core/plugin-registries'
 import { runPluginTeardowns } from '../core/plugin-teardown-registry'
+import { clearLoadedScriptMemo } from '../runtime/load-script'
 
 export function disposeWebPlugin(pluginId: string) {
   if (!pluginId || typeof pluginId !== 'string') {
@@ -13,7 +15,7 @@ export function disposeWebPlugin(pluginId: string) {
   }
 
   runPluginTeardowns(pluginId)
-  revokePluginMenusIfConfigured(pluginId)
+  removeRegisteredRoutesForPlugin(getPluginBootstrapRouter(), pluginId)
 
   const slots = registries.slots
   for (const pointId of Object.keys(slots)) {
@@ -37,6 +39,12 @@ export function disposeWebPlugin(pluginId: string) {
   if (typeof document !== 'undefined') {
     document.querySelectorAll('[data-plugin-asset]').forEach((el) => {
       if (el.getAttribute('data-plugin-asset') === pluginId) {
+        if (el.tagName === 'SCRIPT') {
+          const src = (el as HTMLScriptElement).src
+          if (src) {
+            clearLoadedScriptMemo(src)
+          }
+        }
         el.remove()
       }
     })
