@@ -1,5 +1,5 @@
 {
-  "name": "web-plugin-com-example-frontend-demo",
+  "name": "{{packageName}}",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -11,8 +11,8 @@
     "pack": "npm run validate:manifest && npm run build && web-ext-kit pack --clean"
   },
   "devDependencies": {
-    "web-extend-plugin-build-kit": "^0.1.0",
-    "@vitejs/plugin-vue2": "^2.3.1",
+    "web-extend-plugin-build-kit": "{{buildKitVersion}}",
+    "@vitejs/plugin-vue2": "^2.3.3",
     "vite": "^5.4.11",
     "vite-plugin-css-injected-by-js": "^4.0.1",
     "vue": "^2.7.16"

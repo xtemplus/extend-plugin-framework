@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 import { validateManifestFiles, defaultSchemaPath } from './lib/validate-manifest.js'
 import { packPluginBundle, printPackResult } from './lib/pack.js'
+import { createPluginTemplate } from './lib/create.js'
 
 function printHelp() {
   console.log(`
-web-fp-kit — web-extend-plugin-build-kit CLI
+web-ext-kit - web-extend-plugin-build-kit CLI
 
 Usage:
-  web-fp-kit validate [manifest.json ...] [--schema path/to/schema.json]
-  web-fp-kit pack [--cwd <dir>]   (run from plugin root; expects manifest.json + dist/)
+  web-ext-kit create <project-name> [--template <name>] [--plugin-id <id>] [--plugin-name <name>]
+                     [--lib-name <name>] [--dev-port <port>] [--target-dir <dir>] [--force]
+  web-ext-kit validate [manifest.json ...] [--schema path/to/schema.json]
+  web-ext-kit pack [--cwd <dir>] [--clean]   (run from plugin root; expects manifest.json + dist/)
 
 Options:
   --schema   Override JSON Schema (default: bundled manifest.schema.json)
   --cwd      Plugin project root for pack (default: current directory)
+  --clean    Remove source dist/ after pack finishes
 `)
 }
 
@@ -25,7 +29,6 @@ if (!cmd || cmd === '-h' || cmd === '--help') {
 }
 
 if (cmd === 'validate') {
-  const schemaIdx = argv.indexOf('--schema')
   let schemaPath
   const files = []
   for (let i = 1; i < argv.length; i++) {
@@ -38,16 +41,46 @@ if (cmd === 'validate') {
     }
   }
   if (files.length === 0) {
-    console.error('[web-fp-kit] validate: pass at least one manifest.json path')
+    console.error('[web-ext-kit] validate: pass at least one manifest.json path')
     process.exit(1)
   }
   try {
     validateManifestFiles(files, { schemaPath: schemaPath || defaultSchemaPath() })
   } catch (e) {
-    console.error('[web-fp-kit]', e.message || e)
+    console.error('[web-ext-kit]', e.message || e)
     process.exit(1)
   }
   process.exit(0)
+}
+
+if (cmd === 'create') {
+  const projectName = argv[1]
+  if (!projectName || projectName.startsWith('--')) {
+    console.error('[web-ext-kit] create: <project-name> is required')
+    process.exit(1)
+  }
+
+  try {
+    const result = createPluginTemplate({
+      projectName,
+      template: readOption(argv, '--template'),
+      pluginId: readOption(argv, '--plugin-id'),
+      pluginName: readOption(argv, '--plugin-name'),
+      libName: readOption(argv, '--lib-name'),
+      devPort: readOption(argv, '--dev-port'),
+      targetDir: readOption(argv, '--target-dir'),
+      force: argv.includes('--force')
+    })
+    console.log('[web-ext-kit] created project at', result.targetDir)
+    console.log('[web-ext-kit] next:')
+    console.log('  cd', result.targetDir)
+    console.log('  npm install')
+    console.log('  npm run dev')
+    process.exit(0)
+  } catch (e) {
+    console.error('[web-ext-kit]', e.message || e)
+    process.exit(1)
+  }
 }
 
 if (cmd === 'pack') {
@@ -57,15 +90,23 @@ if (cmd === 'pack') {
     cwd = argv[cwdIdx + 1]
   }
   try {
-    const result = packPluginBundle(cwd)
+    const result = packPluginBundle(cwd, { cleanSourceDist: argv.includes('--clean') })
     printPackResult(result)
   } catch (e) {
-    console.error('[web-fp-kit]', e.message || e)
+    console.error('[web-ext-kit]', e.message || e)
     process.exit(1)
   }
   process.exit(0)
 }
 
-console.error('[web-fp-kit] unknown command:', cmd)
+console.error('[web-ext-kit] unknown command:', cmd)
 printHelp()
 process.exit(1)
+
+function readOption(argv, name) {
+  const idx = argv.indexOf(name)
+  if (idx >= 0 && argv[idx + 1] && !argv[idx + 1].startsWith('--')) {
+    return argv[idx + 1]
+  }
+  return undefined
+}

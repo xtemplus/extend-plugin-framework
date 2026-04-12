@@ -16,7 +16,7 @@ export { presetVersion }
 
 function webPluginDevPingPlugin() {
   return {
-    name: 'web-fp-kit-dev-ping',
+    name: 'web-ext-kit-dev-ping',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
@@ -34,7 +34,7 @@ function webPluginDevPingPlugin() {
 
 function webPluginReloadSsePlugin() {
   return {
-    name: 'web-fp-kit-reload-sse',
+    name: 'web-ext-kit-reload-sse',
     apply: 'serve',
     configureServer(server) {
       const clients = new Set()
@@ -90,7 +90,7 @@ function webPluginReloadSsePlugin() {
 
 function vueFromWindowPlugin() {
   return {
-    name: 'web-fp-kit-vue-from-window',
+    name: 'web-ext-kit-vue-from-window',
     apply: 'serve',
     enforce: 'pre',
     resolveId(id) {

@@ -1,6 +1,6 @@
 {
   "name": "web-extend-plugin-build-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Build kit for Vue 2.7 web extend plugins: manifest validate, pack to plugins/web layout, Vite/Webpack presets (var global + dev ping/SSE)",
   "type": "module",
   "main": "./src/index.js",
@@ -10,11 +10,12 @@
     "./webpack": "./src/webpack-preset.js"
   },
   "bin": {
-    "web-fp-kit": "./src/cli.mjs"
+    "web-ext-kit": "./src/cli.mjs"
   },
   "files": [
     "src",
-    "schema"
+    "schema",
+    "templates"
   ],
   "peerDependencies": {
     "@vitejs/plugin-vue2": "^2.3.0",

@@ -29,7 +29,7 @@ export function validateManifestData(data, manifestPath, schemaPath) {
     throw new Error(`Missing or empty required field "entry": ${manifestPath}`)
   }
   if (data.priority != null && typeof data.priority !== 'number') {
-    console.warn(`[web-fp-kit] Warning: "priority" should be a number: ${manifestPath}`)
+    console.warn(`[web-ext-kit] Warning: "priority" should be a number: ${manifestPath}`)
   }
   if (data.styles != null && !Array.isArray(data.styles)) {
     throw new Error(`"styles" must be an array of strings: ${manifestPath}`)
@@ -68,10 +68,10 @@ export function validateManifestFiles(manifestPaths, opts = {}) {
   const schema = opts.schemaPath || defaultSchemaPath()
   const useSchema = fs.existsSync(schema) ? schema : null
   if (!useSchema) {
-    console.warn(`[web-fp-kit] Schema not found at ${schema}, using minimal checks only`)
+    console.warn(`[web-ext-kit] Schema not found at ${schema}, using minimal checks only`)
   }
   for (const f of manifestPaths) {
     const abs = validateManifestFile(f, useSchema)
-    console.log(`[web-fp-kit] validate OK ${abs}`)
+    console.log(`[web-ext-kit] validate OK ${abs}`)
   }
 }

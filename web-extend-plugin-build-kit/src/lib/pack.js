@@ -4,7 +4,7 @@ import path from 'path'
 /**
  * Copy manifest.json + dist/ → dist-pack/<manifest.id>/ under root.
  * @param {string} [rootDir] plugin project root (default process.cwd())
- * @param {{ outDir?: string }} [opts] outDir default 'dist-pack'
+ * @param {{ outDir?: string, cleanSourceDist?: boolean }} [opts] outDir default 'dist-pack'
  */
 export function packPluginBundle(rootDir = process.cwd(), opts = {}) {
   const root = path.resolve(rootDir)
@@ -40,10 +40,14 @@ export function packPluginBundle(rootDir = process.cwd(), opts = {}) {
   fs.copyFileSync(manifestPath, path.join(outDir, 'manifest.json'))
   fs.cpSync(distSrc, path.join(outDir, 'dist'), { recursive: true })
 
+  if (opts.cleanSourceDist) {
+    fs.rmSync(distSrc, { recursive: true, force: true })
+  }
+
   return { outDir, bundleDir, outRoot }
 }
 
 export function printPackResult(result) {
-  console.log('[web-fp-kit] packed to', result.outDir)
-  console.log('[web-fp-kit] deploy: copy folder to host plugins/web/' + result.bundleDir + '/')
+  console.log('[web-ext-kit] packed to', result.outDir)
+  console.log('[web-ext-kit] deploy: copy folder to host plugins/web/' + result.bundleDir + '/')
 }

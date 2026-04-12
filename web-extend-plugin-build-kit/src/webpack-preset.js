@@ -94,7 +94,7 @@ export function defineWebExtendPluginWebpackConfig(options = {}) {
               return
             }
             let firstDone = true
-            compiler.hooks.done.tap('web-fp-kit-webpack-reload', (stats) => {
+            compiler.hooks.done.tap('web-ext-kit-webpack-reload', (stats) => {
               if (firstDone) {
                 firstDone = false
                 return
