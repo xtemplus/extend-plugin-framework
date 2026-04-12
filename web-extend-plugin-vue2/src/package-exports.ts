@@ -29,9 +29,15 @@ import {
 } from './core/public-config-defaults'
 import { setWebExtendPluginEnv } from './core/build-env'
 import { installWebExtendPluginVue2 } from './host/install'
+import { installHostBridge } from './host/install-host-bridge'
 import ExtensionPoint from './components/ExtensionPoint'
 import { createVueCliAxiosInstallOptions } from './presets/vue-cli-axios'
 
+// Public exports are intentionally grouped by role:
+// - core runtime
+// - manifest fetch composition
+// - host bridge / registry helpers
+// - public constants
 export {
   getRegisteredTopRouteNamesForPlugin,
   getContributedRoutesForPlugin,
@@ -58,6 +64,7 @@ export {
   routeSynthNamePrefix,
   peerMinimumVersions,
   installWebExtendPluginVue2,
+  installHostBridge,
   ExtensionPoint,
   createVueCliAxiosInstallOptions
 }

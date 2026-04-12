@@ -1,8 +1,8 @@
 /**
- * 当 `ensurePluginHostRoute === true` 且提供 `pluginRoutesParentName` + `hostLayoutComponent` 时，
- * 注册 `pluginMountPath` + Layout 的命名父路由，供 `router.addRoute(parentName, child)` 挂载插件页。
+ * 在需要时补注册插件宿主父路由。
  */
 import { defaultWebExtendPluginRuntime } from '../core/public-config-defaults'
+import { resolveRuntimeOptions } from './resolve-runtime-options'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VueRouterLike = any
@@ -12,7 +12,7 @@ function routeNameExists(router: VueRouterLike, name: string): boolean {
     return false
   }
   if (typeof router.getRoutes === 'function') {
-    return router.getRoutes().some((r: { name?: string | symbol }) => r.name === name)
+    return router.getRoutes().some((route: { name?: string | symbol }) => route.name === name)
   }
   return walkRouteNames(router.options && router.options.routes, name)
 }
@@ -21,55 +21,60 @@ function walkRouteNames(routes: unknown[] | undefined, name: string): boolean {
   if (!Array.isArray(routes)) {
     return false
   }
-  for (const r of routes) {
-    if (r && typeof r === 'object' && (r as Record<string, unknown>).name === name) {
+  for (const route of routes) {
+    if (route && typeof route === 'object' && (route as Record<string, unknown>).name === name) {
       return true
     }
-    const ch = r && typeof r === 'object' ? (r as Record<string, unknown>).children : null
-    if (walkRouteNames(ch as unknown[] | undefined, name)) {
+    const children =
+      route && typeof route === 'object' ? ((route as Record<string, unknown>).children as unknown[] | undefined) : undefined
+    if (walkRouteNames(children, name)) {
       return true
     }
   }
   return false
 }
 
-export function ensurePluginHostRoute(router: VueRouterLike, opts: Record<string, unknown>) {
-  if (opts.ensurePluginHostRoute !== true) {
+function normalizeMountPath(value: unknown): string {
+  const mountDefault = defaultWebExtendPluginRuntime.pluginMountPath
+  const raw = String(value || mountDefault).trim().replace(/\/$/, '') || mountDefault
+  return raw.startsWith('/') ? raw : `/${raw}`
+}
+
+function resolveRouteMeta(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : { requiresConfig: true, hidden: true }
+}
+
+export function ensurePluginHostRoute(router: VueRouterLike, options: Record<string, unknown>) {
+  const opts =
+    options && typeof options === 'object' && ('manifestBase' in options || 'ensurePluginHostRoute' in options)
+      ? options
+      : resolveRuntimeOptions(options)
+
+  if (opts.ensurePluginHostRoute !== true || !router || typeof router.addRoute !== 'function') {
     return
   }
-  if (!router || typeof router.addRoute !== 'function') {
-    return
-  }
+
   const parentName = String(opts.pluginRoutesParentName || '').trim()
-  if (!parentName) {
+  if (!parentName || routeNameExists(router, parentName)) {
     return
   }
-  if (routeNameExists(router, parentName)) {
-    return
-  }
+
   const Layout = opts.hostLayoutComponent
   if (!Layout) {
     console.warn(
-      '[wep] 缺少 hostLayoutComponent，未自动注册插件壳路由；请传入宿主 Layout，或在路由表中自行配置与 pluginRoutesParentName 一致的父路由'
+      '[wep] missing hostLayoutComponent; plugin host route was not auto-registered'
     )
     return
   }
-  const mountDefault = defaultWebExtendPluginRuntime.pluginMountPath
-  let pathRaw = String(opts.pluginMountPath || mountDefault).trim().replace(/\/$/, '') || mountDefault
-  if (!pathRaw.startsWith('/')) {
-    pathRaw = `/${pathRaw}`
-  }
-  const meta =
-    opts.pluginHostRouteMeta && typeof opts.pluginHostRouteMeta === 'object'
-      ? { ...(opts.pluginHostRouteMeta as object) }
-      : { requiresConfig: true, hidden: true }
 
   router.addRoute({
-    path: pathRaw,
+    path: normalizeMountPath(opts.pluginMountPath),
     name: parentName,
     component: Layout,
     redirect: 'noredirect',
-    meta,
+    meta: resolveRouteMeta(opts.pluginHostRouteMeta),
     children: []
   })
 }

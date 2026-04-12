@@ -1,5 +1,5 @@
 /**
- * 构造插件 `activator(hostApi)` 使用的宿主 API：路由、扩展点、资源与受控请求桥。
+ * 构造插件 `activator(hostApi)` 使用的宿主 API。
  */
 import Vue from 'vue'
 import type { Component } from 'vue'
@@ -35,6 +35,48 @@ type RegisteredTopRoute = {
   dispose?: (() => void) | undefined
 }
 
+type RouteRegistrationDeps = {
+  pluginId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any
+  parentName: string
+  hostKitOptions: HostKitOptions
+}
+
+function getBridgePrefixes(hostKitOptions: HostKitOptions): string[] {
+  return Array.isArray(hostKitOptions.bridgeAllowedPathPrefixes) &&
+    hostKitOptions.bridgeAllowedPathPrefixes.length > 0
+    ? hostKitOptions.bridgeAllowedPathPrefixes
+    : defaultWebExtendPluginRuntime.bridgeAllowedPathPrefixes
+}
+
+function resolveHostRuntime(hostKitOptions: HostKitOptions) {
+  const hostContext: HostContext =
+    hostKitOptions.hostContext != null && typeof hostKitOptions.hostContext === 'object'
+      ? (hostKitOptions.hostContext as HostContext)
+      : Object.freeze({})
+  const hostVue = (hostContext as Record<string, unknown>).Vue
+  return {
+    hostContext,
+    VueRuntime: hostVue || Vue
+  }
+}
+
+function normalizeParentRouteName(hostKitOptions: HostKitOptions): string {
+  return typeof hostKitOptions.pluginRoutesParentName === 'string'
+    ? hostKitOptions.pluginRoutesParentName.trim()
+    : ''
+}
+
+function normalizeUrls(urls?: string[]): string[] {
+  return Array.isArray(urls)
+    ? urls
+        .filter((url): url is string => typeof url === 'string')
+        .map((url) => url.trim())
+        .filter(Boolean)
+    : []
+}
+
 function decorateRouteTreeWithPluginMeta(pluginId: string, route: RouteConfig): RouteConfig {
   const meta =
     route.meta && typeof route.meta === 'object' && !Array.isArray(route.meta)
@@ -65,29 +107,159 @@ function decorateRouteTreeWithPluginMeta(pluginId: string, route: RouteConfig): 
 function analyzeRouteInputTree(nodes: unknown[]) {
   let hasDecl = false
   let hasCfg = false
-  function walk(r: unknown) {
-    if (!r || typeof r !== 'object') {
+
+  function walk(node: unknown) {
+    if (!node || typeof node !== 'object') {
       return
     }
-    const o = r as Record<string, unknown>
-    const cfg = o.component != null || o.components != null
-    const decl = typeof o.componentRef === 'string'
-    if (cfg) {
+    const record = node as Record<string, unknown>
+    const hasRouteConfig = record.component != null || record.components != null
+    const hasRouteDecl = typeof record.componentRef === 'string'
+    if (hasRouteConfig) {
       hasCfg = true
-    } else if (decl) {
+    } else if (hasRouteDecl) {
       hasDecl = true
     }
-    const ch = o.children
-    if (Array.isArray(ch)) {
-      for (const c of ch) {
-        walk(c)
+    if (Array.isArray(record.children)) {
+      for (const child of record.children) {
+        walk(child)
       }
     }
   }
-  for (const n of nodes) {
-    walk(n)
+
+  for (const node of nodes) {
+    walk(node)
   }
   return { hasDecl, hasCfg }
+}
+
+function rollbackRegisteredTopRoutes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any,
+  routes: RegisteredTopRoute[]
+) {
+  for (let i = routes.length - 1; i >= 0; i--) {
+    const route = routes[i]
+    if (typeof route.dispose === 'function') {
+      try {
+        route.dispose()
+        continue
+      } catch (e) {
+        console.warn('[wep] rollback route disposer failed', route.name, e)
+      }
+    }
+
+    if (typeof router.removeRoute === 'function') {
+      try {
+        router.removeRoute(route.name)
+      } catch (e) {
+        console.warn('[wep] rollback removeRoute failed', route.name, e)
+      }
+    }
+  }
+}
+
+function decorateTopRoutes(pluginId: string, rawRouteConfigs: RouteConfig[]): RouteConfig[] {
+  return rawRouteConfigs.map((route) => ({
+    ...decorateRouteTreeWithPluginMeta(pluginId, route),
+    name: route.name || `${routeSynthNamePrefix}${pluginId}_${routeSynthSeq++}`
+  }))
+}
+
+function createRouteRegistrar({ pluginId, router, parentName, hostKitOptions }: RouteRegistrationDeps) {
+  function addTopRoute(route: RouteConfig): RegisteredTopRoute {
+    const dispose = parentName ? router.addRoute(parentName, route) : router.addRoute(route)
+    return {
+      name: String(route.name),
+      dispose: typeof dispose === 'function' ? dispose : undefined
+    }
+  }
+
+  return function applyInternalRegister(rawRouteConfigs: RouteConfig[]) {
+    if (typeof router.addRoute !== 'function') {
+      throw new Error('[wep] vue-router 3.5+ required: please use router.addRoute')
+    }
+    const wrapped = decorateTopRoutes(pluginId, rawRouteConfigs)
+    const registeredTopRoutes: RegisteredTopRoute[] = []
+    try {
+      for (const route of wrapped) {
+        registeredTopRoutes.push(addTopRoute(route))
+      }
+    } catch (e) {
+      rollbackRegisteredTopRoutes(router, registeredTopRoutes)
+      throw e
+    }
+    recordPluginTopRoutes(pluginId, registeredTopRoutes)
+    const contributedRoutes = recordContributedRoutesForPlugin(pluginId, wrapped)
+    if (contributedRoutes.length > 0 && typeof hostKitOptions.onPluginRoutesContributed === 'function') {
+      hostKitOptions.onPluginRoutesContributed({
+        pluginId,
+        router,
+        routes: wrapped,
+        contributedRoutes
+      })
+    }
+  }
+}
+
+function injectStylesheet(pluginId: string, href: string) {
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = href
+  link.setAttribute('data-plugin-asset', pluginId)
+  document.head.appendChild(link)
+}
+
+function injectScript(pluginId: string, src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.async = true
+    script.src = src
+    script.setAttribute('data-plugin-asset', pluginId)
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('script failed: ' + src))
+    document.head.appendChild(script)
+  })
+}
+
+function resolveRouteConfigs(
+  pluginId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any,
+  hostKitOptions: HostKitOptions,
+  routes: unknown[]
+): RouteConfig[] {
+  const { hasDecl, hasCfg } = analyzeRouteInputTree(routes)
+  if (hasDecl && hasCfg) {
+    throw new Error(
+      '[wep] registerRoutes: cannot mix RouteDeclaration (componentRef) with RouteConfig (component)'
+    )
+  }
+
+  let configs: RouteConfig[]
+  if (hasDecl) {
+    const adapt = hostKitOptions.adaptRouteDeclarations
+    if (typeof adapt !== 'function') {
+      throw new Error(
+        '[wep] registerRoutes: RouteDeclaration (componentRef) requires adaptRouteDeclarations on the host'
+      )
+    }
+    configs = adapt({
+      pluginId,
+      router,
+      declarations: routes as object[]
+    })
+  } else {
+    configs = routes as RouteConfig[]
+  }
+
+  return typeof hostKitOptions.transformRoutes === 'function'
+    ? hostKitOptions.transformRoutes({
+        pluginId,
+        router,
+        routes: configs
+      })
+    : configs
 }
 
 export type HostKitOptions = Record<string, unknown> & {
@@ -110,9 +282,7 @@ export type HostKitOptions = Record<string, unknown> & {
     router: any
     declarations: ReadonlyArray<object>
   }) => RouteConfig[]
-  /** 由 bootstrap 注入的浅冻结上下文；勿在 `createHostApi` 外重复设置 */
   hostContext?: HostContext
-  /** 后置钩子：插件贡献的路由注册完成后触发 */
   onPluginRoutesContributed?: (ctx: {
     pluginId: string
     router: any
@@ -121,116 +291,17 @@ export type HostKitOptions = Record<string, unknown> & {
   }) => void
 }
 
-/**
- * 单插件在宿主侧的 API 句柄。工厂请传 `(id, router, kit) => createHostApi(id, r, kit)` 以便 bridge 白名单等到位。
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createHostApi(pluginId: string, router: any, hostKitOptions: HostKitOptions = {}) {
-  const bridgePrefixes =
-    Array.isArray(hostKitOptions.bridgeAllowedPathPrefixes) &&
-    hostKitOptions.bridgeAllowedPathPrefixes.length > 0
-      ? hostKitOptions.bridgeAllowedPathPrefixes
-      : defaultWebExtendPluginRuntime.bridgeAllowedPathPrefixes
-
-  const bridge = createRequestBridge({ allowedPathPrefixes: bridgePrefixes })
-
-  const parentName =
-    typeof hostKitOptions.pluginRoutesParentName === 'string'
-      ? hostKitOptions.pluginRoutesParentName.trim()
-      : ''
-
-  function rollbackRegisteredTopRoutes(routes: RegisteredTopRoute[]) {
-    for (let i = routes.length - 1; i >= 0; i--) {
-      const route = routes[i]
-
-      if (typeof route.dispose === 'function') {
-        try {
-          route.dispose()
-          continue
-        } catch (e) {
-          console.warn('[wep] rollback route disposer failed', route.name, e)
-        }
-      }
-
-      if (typeof router.removeRoute === 'function') {
-        try {
-          router.removeRoute(route.name)
-        } catch (e) {
-          console.warn('[wep] rollback removeRoute failed', route.name, e)
-        }
-      }
-    }
-  }
-
-  function applyInternalRegister(rawRouteConfigs: RouteConfig[]) {
-    const wrapped = rawRouteConfigs.map((r) => ({
-      ...decorateRouteTreeWithPluginMeta(pluginId, r),
-      name: r.name || `${routeSynthNamePrefix}${pluginId}_${routeSynthSeq++}`
-    }))
-    if (typeof router.addRoute !== 'function') {
-      throw new Error('[wep] vue-router 3.5+ 必需：请使用 router.addRoute（不再支持 addRoutes）')
-    }
-    const registeredTopRoutes: RegisteredTopRoute[] = []
-    try {
-      if (parentName) {
-        for (const r of wrapped) {
-          const dispose = router.addRoute(parentName, r)
-          registeredTopRoutes.push({
-            name: String(r.name),
-            dispose: typeof dispose === 'function' ? dispose : undefined
-          })
-        }
-      } else {
-        for (const r of wrapped) {
-          const dispose = router.addRoute(r)
-          registeredTopRoutes.push({
-            name: String(r.name),
-            dispose: typeof dispose === 'function' ? dispose : undefined
-          })
-        }
-      }
-    } catch (e) {
-      rollbackRegisteredTopRoutes(registeredTopRoutes)
-      throw e
-    }
-    recordPluginTopRoutes(pluginId, registeredTopRoutes)
-    const contributedRoutes = recordContributedRoutesForPlugin(pluginId, wrapped)
-    if (contributedRoutes.length > 0 && typeof hostKitOptions.onPluginRoutesContributed === 'function') {
-      hostKitOptions.onPluginRoutesContributed({
-        pluginId,
-        router,
-        routes: wrapped,
-        contributedRoutes
-      })
-    }
-  }
-
-  function injectStylesheet(href: string) {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = href
-    link.setAttribute('data-plugin-asset', pluginId)
-    document.head.appendChild(link)
-  }
-
-  function injectScript(src: string) {
-    return new Promise<void>((resolve, reject) => {
-      const s = document.createElement('script')
-      s.async = true
-      s.src = src
-      s.setAttribute('data-plugin-asset', pluginId)
-      s.onload = () => resolve()
-      s.onerror = () => reject(new Error('script failed: ' + src))
-      document.head.appendChild(s)
-    })
-  }
-
-  const hostContext: HostContext =
-    hostKitOptions.hostContext != null && typeof hostKitOptions.hostContext === 'object'
-      ? (hostKitOptions.hostContext as HostContext)
-      : Object.freeze({})
-  const hostVue = hostContext && (hostContext as Record<string, unknown>).Vue
-  const VueRuntime = hostVue || Vue
+  const bridge = createRequestBridge({ allowedPathPrefixes: getBridgePrefixes(hostKitOptions) })
+  const parentName = normalizeParentRouteName(hostKitOptions)
+  const applyInternalRegister = createRouteRegistrar({
+    pluginId,
+    router,
+    parentName,
+    hostKitOptions
+  })
+  const { hostContext, VueRuntime } = resolveHostRuntime(hostKitOptions)
 
   ensureRegistriesReactive(VueRuntime)
 
@@ -240,8 +311,6 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
 
   return {
     hostPluginApiVersion: HOST_PLUGIN_API_VERSION,
-
-    /** 宿主注入的只读依赖（store、router、开放能力等），见 `resolveRuntimeOptions.hostContext` */
     hostContext,
 
     registerRoutes(routes: unknown[]) {
@@ -249,37 +318,7 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
       if (list.length === 0) {
         return
       }
-      const { hasDecl, hasCfg } = analyzeRouteInputTree(list)
-      if (hasDecl && hasCfg) {
-        throw new Error(
-          '[wep] registerRoutes: cannot mix RouteDeclaration (componentRef) with RouteConfig (component)'
-        )
-      }
-      let configs: RouteConfig[]
-      if (hasDecl) {
-        const adapt = hostKitOptions.adaptRouteDeclarations
-        if (typeof adapt !== 'function') {
-          throw new Error(
-            '[wep] registerRoutes: RouteDeclaration (componentRef) requires adaptRouteDeclarations on the host'
-          )
-        }
-        configs = adapt({
-          pluginId,
-          router,
-          declarations: list as object[]
-        })
-      } else {
-        configs = list as RouteConfig[]
-      }
-
-      if (typeof hostKitOptions.transformRoutes === 'function') {
-        configs = hostKitOptions.transformRoutes({
-          pluginId,
-          router,
-          routes: configs
-        })
-      }
-
+      const configs = resolveRouteConfigs(pluginId, router, hostKitOptions, list)
       if (typeof hostKitOptions.interceptRegisterRoutes === 'function') {
         hostKitOptions.interceptRegisterRoutes({
           pluginId,
@@ -300,11 +339,11 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
         VueRuntime.set(registries.slots, pointId, [])
       }
       const list = registries.slots[pointId]
-      for (const c of components) {
+      for (const componentEntry of components) {
         list.push({
           pluginId,
-          component: c.component,
-          priority: c.priority != null ? c.priority : 0,
+          component: componentEntry.component,
+          priority: componentEntry.priority != null ? componentEntry.priority : 0,
           key: `${pluginId}-${pointId}-${++slotItemKeySeq}`
         })
       }
@@ -313,16 +352,14 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
     },
 
     registerStylesheetUrls(urls?: string[]) {
-      for (const u of urls || []) {
-        if (typeof u === 'string' && u) {
-          injectStylesheet(u)
-        }
+      for (const url of normalizeUrls(urls)) {
+        injectStylesheet(pluginId, url)
       }
     },
 
     registerScriptUrls(urls?: string[]) {
-      const chain = (urls || []).filter((u) => typeof u === 'string' && u).reduce(
-        (p, u) => p.then(() => injectScript(u)),
+      const chain = normalizeUrls(urls).reduce(
+        (promise, url) => promise.then(() => injectScript(pluginId, url)),
         Promise.resolve()
       )
       chain.catch((e) => console.warn('[wep] registerScriptUrls', pluginId, e))
@@ -333,15 +370,10 @@ export function createHostApi(pluginId: string, router: any, hostKitOptions: Hos
     },
 
     getContributedRoutes: () => getContributedRoutesForPlugin(pluginId),
-
     getHostModule,
-
     getHostModuleMeta,
-
     getHostComponent,
-
     getHostComponentMeta,
-
     getBridge: () => bridge,
 
     onTeardown(_pluginId: string, fn: () => void) {

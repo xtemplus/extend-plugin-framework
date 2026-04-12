@@ -1,7 +1,22 @@
 /**
- * 开发模式插件 URL 映射（显式 JSON + 隐式 dev 探测）。
+ * 开发模式插件 URL 映射。
  */
 import { isScriptHostAllowed } from './path-host-utils'
+
+function normalizeStringValue(value: unknown): string {
+  return value == null ? '' : String(value).trim()
+}
+
+function normalizeStringList(value: unknown, fallback: string[] = []): string[] {
+  const raw = normalizeStringValue(value)
+  if (!raw) {
+    return [...fallback]
+  }
+  return raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
 
 export function parseWebPluginDevMapExplicit(opts: {
   isDev: boolean
@@ -10,12 +25,12 @@ export function parseWebPluginDevMapExplicit(opts: {
   if (!opts.isDev) {
     return null
   }
-  const raw = opts.webPluginDevMapJson
-  if (raw === undefined || raw === null || String(raw).trim() === '') {
+  const raw = normalizeStringValue(opts.webPluginDevMapJson)
+  if (!raw) {
     return null
   }
   try {
-    const map = JSON.parse(String(raw)) as unknown
+    const map = JSON.parse(raw) as unknown
     return map && typeof map === 'object' ? (map as Record<string, string>) : null
   } catch {
     console.warn('[wep] invalid webPluginDevMapJson / VITE_WEB_PLUGIN_DEV_MAP')
@@ -36,7 +51,7 @@ export async function buildImplicitWebPluginDevMap(
   opts: {
     isDev: boolean
     webPluginDevOrigin?: string | null
-    webPluginDevIds?: string | null
+    webPluginDevIds?: string[] | string | null
     defaultImplicitDevPluginIds: string[]
     devPingPath: string
     devPingTimeoutMs: number
@@ -47,26 +62,13 @@ export async function buildImplicitWebPluginDevMap(
   if (!opts.isDev) {
     return {}
   }
-  const origin =
-    opts.webPluginDevOrigin === undefined || opts.webPluginDevOrigin === null
-      ? ''
-      : String(opts.webPluginDevOrigin).trim()
-  if (!origin) {
-    return {}
-  }
-  if (!isScriptHostAllowed(`${origin}/`, hostSet)) {
+
+  const origin = normalizeStringValue(opts.webPluginDevOrigin)
+  if (!origin || !isScriptHostAllowed(`${origin}/`, hostSet)) {
     return {}
   }
 
-  const idsRaw = opts.webPluginDevIds
-  const ids =
-    idsRaw !== undefined && idsRaw !== null && String(idsRaw).trim() !== ''
-      ? String(idsRaw)
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [...opts.defaultImplicitDevPluginIds]
-
+  const ids = normalizeStringList(opts.webPluginDevIds, opts.defaultImplicitDevPluginIds)
   if (ids.length === 0) {
     return {}
   }
@@ -76,30 +78,27 @@ export async function buildImplicitWebPluginDevMap(
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), opts.devPingTimeoutMs)
-    const r = await fetch(pingUrl, {
+    const response = await fetch(pingUrl, {
       mode: 'cors',
       cache: 'no-store',
       signal: ctrl.signal
     })
     clearTimeout(timer)
-    if (!r.ok) {
+    if (!response.ok) {
       return {}
     }
-    const body = (await r.text()).trim()
-    if (body !== 'ok') {
+    if ((await response.text()).trim() !== 'ok') {
       return {}
     }
   } catch {
     return {}
   }
 
-  const pathPart = opts.webPluginDevEntryPath
+  const entryUrl = `${base}${opts.webPluginDevEntryPath}`
   const map: Record<string, string> = {}
   for (const id of ids) {
-    map[id] = `${base}${pathPart}`
+    map[id] = entryUrl
   }
-  if (ids.length) {
-    console.info('[wep] plugin dev server', base, '→ implicit entries', pathPart, ids.join(', '))
-  }
+  console.info('[wep] plugin dev server', base, '-> implicit entries', opts.webPluginDevEntryPath, ids.join(', '))
   return map
 }

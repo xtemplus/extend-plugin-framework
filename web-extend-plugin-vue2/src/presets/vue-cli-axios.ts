@@ -34,6 +34,10 @@ function bridgePrefixesFromVueCliEnv(): string[] {
   return [...new Set(raw)]
 }
 
+function asRecord<T extends Record<string, unknown>>(value: unknown): T | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as T) : undefined
+}
+
 export function createVueCliAxiosInstallOptions(
   deps: { request: (config: { url: string; method?: string }) => Promise<unknown> },
   extra: Record<string, unknown> = {}
@@ -43,22 +47,21 @@ export function createVueCliAxiosInstallOptions(
     throw new Error('[wep] createVueCliAxiosInstallOptions requires deps.request')
   }
 
-  const {
-    fetchManifest: userFetchManifest,
-    manifestMode: extraManifestMode,
-    staticManifestUrl: extraStaticManifestUrl,
-    ...restExtra
-  } = extra
+  const manifest = asRecord<Record<string, unknown>>(extra.manifest) || {}
+  const host = asRecord<Record<string, unknown>>(extra.host) || {}
+  const mergedHost = { ...host }
 
   const envBase = (
     typeof process !== 'undefined' && process.env && process.env.VUE_APP_BASE_API
       ? String(process.env.VUE_APP_BASE_API)
       : ''
   ).replace(/\/$/, '')
+
   const userBase =
-    extra.manifestBase !== undefined && String(extra.manifestBase).trim() !== ''
-      ? String(extra.manifestBase).replace(/\/$/, '')
+    manifest.baseUrl !== undefined && String(manifest.baseUrl).trim() !== ''
+      ? String(manifest.baseUrl).replace(/\/$/, '')
       : ''
+
   const stripBase = userBase || envBase
 
   const fetchManifestApi = async (ctx: { manifestUrl: string; credentials: RequestCredentials }) => {
@@ -69,11 +72,7 @@ export function createVueCliAxiosInstallOptions(
       })
       const data = unwrapNestedManifestBody(body)
       if (!data || typeof data !== 'object') {
-        return {
-          ok: false,
-          error: new Error('[wep] invalid manifest response'),
-          data: null
-        }
+        return { ok: false, error: new Error('[wep] invalid manifest response'), data: null }
       }
       return { ok: true, data }
     } catch (error) {
@@ -81,33 +80,37 @@ export function createVueCliAxiosInstallOptions(
     }
   }
 
-  const manifestMode = resolveManifestModeFromInputs(extraManifestMode)
-  const staticManifestUrl = resolveStaticManifestUrlFromInputs(extraStaticManifestUrl)
+  const manifestSource = resolveManifestModeFromInputs(manifest.source)
+  const staticUrl = resolveStaticManifestUrlFromInputs(manifest.staticUrl)
 
   const fetchManifest =
-    typeof userFetchManifest === 'function'
-      ? userFetchManifest
-      : manifestMode === 'static'
+    typeof manifest.fetch === 'function'
+      ? manifest.fetch
+      : manifestSource === 'static'
         ? fetchStaticManifestViaHttp
         : fetchManifestApi
-
-  const options: Record<string, unknown> = {
-    manifestBase: stripBase || undefined,
-    bridgeAllowedPathPrefixes: bridgePrefixesFromVueCliEnv(),
-    manifestMode,
-    staticManifestUrl,
-    ...restExtra,
-    fetchManifest
-  }
 
   const listPath =
     typeof process !== 'undefined' &&
     process.env &&
     process.env[webExtendPluginEnvKeys.manifestPathAlt]
+      ? String(process.env[webExtendPluginEnvKeys.manifestPathAlt])
+      : undefined
 
-  if (listPath && options.manifestListPath === undefined && extra.manifestListPath === undefined) {
-    options.manifestListPath = String(process.env[webExtendPluginEnvKeys.manifestPathAlt])
+  if (mergedHost.requestPathPrefixes === undefined) {
+    mergedHost.requestPathPrefixes = bridgePrefixesFromVueCliEnv()
   }
 
-  return options
+  return {
+    ...extra,
+    manifest: {
+      ...manifest,
+      baseUrl: stripBase || undefined,
+      listPath: manifest.listPath !== undefined ? manifest.listPath : listPath,
+      source: manifestSource,
+      staticUrl,
+      fetch: fetchManifest
+    },
+    host: mergedHost
+  }
 }

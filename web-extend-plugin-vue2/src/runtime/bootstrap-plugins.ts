@@ -81,6 +81,18 @@ type ManifestPluginEntry = {
   entryUrl?: string
 }
 
+type ManifestBody = {
+  hostPluginApiVersion?: string
+  plugins?: ManifestPluginEntry[]
+}
+
+type ManifestFetchResult = {
+  ok: boolean
+  status?: number
+  data?: ManifestBody | null
+  error?: unknown
+}
+
 function coercePriority(value: unknown) {
   if (value === null || value === undefined) {
     return null
@@ -116,96 +128,42 @@ function sortByPriority(plugins: ManifestPluginEntry[]) {
     .map((decorated) => decorated.entry)
 }
 
-export async function bootstrapPlugins(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  router: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createHostApiFactory: (pluginId: string, router: any, hostKit?: Record<string, unknown>) => unknown,
-  runtimeOptions?: Record<string, unknown>
-) {
-  if (typeof window === 'undefined') {
-    console.warn('[wep] bootstrapPlugins skipped (no window)')
-    return
+function logBootstrapSummary(enabled: boolean, payload: { ok: boolean; reason?: string } & Record<string, unknown>) {
+  if (enabled) {
+    console.info('[wep] bootstrap_summary', payload)
   }
-  printRuntimeBannerOnce()
-  clearActivatedPluginIds()
-  const opts = resolveRuntimeOptions(runtimeOptions || {})
-  setPluginBootstrapRouter(router)
-  ensurePluginHostRoute(router, opts)
-  const base = String(opts.manifestBase).replace(/\/$/, '')
-  const isStatic = opts.manifestMode === 'static'
-  let manifestUrl: string
-  if (isStatic) {
-    const raw = String(opts.staticManifestUrl || '').trim()
-    if (!raw) {
-      console.warn('[wep] manifestMode=static requires non-empty staticManifestUrl (or env VITE_WEB_PLUGIN_STATIC_MANIFEST_URL)')
-      if (shouldShowBootstrapSummary(opts)) {
-        console.info('[wep] bootstrap_summary', { ok: false, reason: 'static_manifest_url_missing' })
-      }
-      return
+}
+
+function getManifestBody(result: ManifestFetchResult): ManifestBody | null {
+  return result.ok && result.data && typeof result.data === 'object' ? result.data : null
+}
+
+function getManifestPluginCount(result: ManifestFetchResult): number {
+  const body = getManifestBody(result)
+  return body && Array.isArray(body.plugins) ? body.plugins.length : 0
+}
+
+async function fetchManifestSafely(
+  fetchManifest: ((ctx: { manifestUrl: string; credentials: RequestCredentials }) => Promise<ManifestFetchResult>) | undefined,
+  manifestCtx: { manifestUrl: string; credentials: RequestCredentials }
+): Promise<ManifestFetchResult> {
+  try {
+    if (typeof fetchManifest === 'function') {
+      return await fetchManifest(manifestCtx)
     }
-    manifestUrl = resolveStaticManifestUrlForFetch(raw, window.location.origin)
-  } else {
-    manifestUrl = `${base}${opts.manifestListPath}`
+    return await defaultFetchWebPluginManifest(manifestCtx)
+  } catch (error) {
+    return { ok: false, error, data: null }
   }
-  const hostSet = buildAllowedScriptHostsSet(opts.allowedScriptHosts)
-  const explicit = parseWebPluginDevMapExplicit(opts)
+}
 
-  const manifestCtx = {
-    manifestUrl,
-    credentials: opts.manifestFetchCredentials
-  }
-  const [primaryResult, implicit] = await Promise.all([
-    (async () => {
-      try {
-        if (typeof opts.fetchManifest === 'function') {
-          return await opts.fetchManifest(manifestCtx)
-        }
-        return await defaultFetchWebPluginManifest(manifestCtx)
-      } catch (e) {
-        return { ok: false, error: e, data: null }
-      }
-    })(),
-    buildImplicitWebPluginDevMap(opts, hostSet)
-  ])
-
-  let manifestResult = primaryResult
-  let manifestUrlUsed = manifestUrl
-  if (!isStatic && opts.devManifestFallback && opts.isDev) {
-    const dataObj =
-      primaryResult.ok && primaryResult.data && typeof primaryResult.data === 'object'
-        ? (primaryResult.data as { plugins?: unknown[] })
-        : null
-    const plen = dataObj && Array.isArray(dataObj.plugins) ? dataObj.plugins.length : 0
-    const needFallback = !primaryResult.ok || plen === 0
-    const fallbackRaw = String(opts.devFallbackStaticManifestUrl || '').trim()
-    if (needFallback && fallbackRaw) {
-      const fallbackUrl = resolveStaticManifestUrlForFetch(fallbackRaw, window.location.origin)
-      const fallbackCtx = {
-        manifestUrl: fallbackUrl,
-        credentials: opts.manifestFetchCredentials
-      }
-      const fr = await fetchStaticManifestViaHttp(fallbackCtx)
-      const fdata =
-        fr.ok && fr.data && typeof fr.data === 'object' ? (fr.data as { plugins?: unknown[] }) : null
-      const flen = fdata && Array.isArray(fdata.plugins) ? fdata.plugins.length : 0
-      if (fr.ok && flen > 0) {
-        manifestResult = fr
-        manifestUrlUsed = fallbackUrl
-        console.info('[wep] dev manifest fallback', { url: fallbackUrl, plugins: flen })
-      }
-    }
-  }
-
-  const devMap = mergeDevMaps(implicit, explicit)
-  startPluginDevSseForMap(devMap, opts.isDev, hostSet, opts.devReloadSsePath)
-
+function buildHostKit(opts: Record<string, unknown>) {
   const frozenHostContext = freezeShallowHostContext(
     opts.hostContext !== undefined ? opts.hostContext : undefined,
     opts.hostCapabilities && typeof opts.hostCapabilities === 'object' ? opts.hostCapabilities : undefined
   )
 
-  const hostKit: Record<string, unknown> = {
+  return {
     hostContext: frozenHostContext,
     bridgeAllowedPathPrefixes: opts.bridgeAllowedPathPrefixes,
     ...(opts.pluginRoutesParentName ? { pluginRoutesParentName: opts.pluginRoutesParentName } : {}),
@@ -220,6 +178,96 @@ export async function bootstrapPlugins(
       ? { onPluginRoutesContributed: opts.onPluginRoutesContributed }
       : {})
   }
+}
+
+function resolveManifestRequest(
+  opts: Record<string, unknown>
+): { isStatic: boolean; manifestUrl: string } | null {
+  const isStatic = opts.manifestMode === 'static'
+  if (isStatic) {
+    const raw = String(opts.staticManifestUrl || '').trim()
+    if (!raw) {
+      return null
+    }
+    return {
+      isStatic,
+      manifestUrl: resolveStaticManifestUrlForFetch(raw, window.location.origin)
+    }
+  }
+
+  const base = String(opts.manifestBase).replace(/\/$/, '')
+  return {
+    isStatic,
+    manifestUrl: `${base}${opts.manifestListPath}`
+  }
+}
+
+export async function bootstrapPlugins(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createHostApiFactory: (pluginId: string, router: any, hostKit?: Record<string, unknown>) => unknown,
+  runtimeOptions?: Record<string, unknown>
+) {
+  if (typeof window === 'undefined') {
+    console.warn('[wep] bootstrapPlugins skipped (no window)')
+    return
+  }
+  printRuntimeBannerOnce()
+  clearActivatedPluginIds()
+  const opts = resolveRuntimeOptions(runtimeOptions)
+  const showBootstrapSummary = shouldShowBootstrapSummary(opts)
+  setPluginBootstrapRouter(router)
+  ensurePluginHostRoute(router, opts)
+  const manifestRequest = resolveManifestRequest(opts)
+  if (!manifestRequest) {
+    console.warn('[wep] manifestMode=static requires non-empty staticManifestUrl (or env VITE_WEB_PLUGIN_STATIC_MANIFEST_URL)')
+    logBootstrapSummary(showBootstrapSummary, { ok: false, reason: 'static_manifest_url_missing' })
+    return
+  }
+  const { isStatic, manifestUrl } = manifestRequest
+  const hostSet = buildAllowedScriptHostsSet(opts.allowedScriptHosts)
+  const explicit = parseWebPluginDevMapExplicit(opts)
+
+  const manifestCtx = {
+    manifestUrl,
+    credentials: opts.manifestFetchCredentials
+  }
+  const [primaryResult, implicit] = await Promise.all([
+    fetchManifestSafely(
+      typeof opts.fetchManifest === 'function'
+        ? (opts.fetchManifest as (ctx: { manifestUrl: string; credentials: RequestCredentials }) => Promise<ManifestFetchResult>)
+        : undefined,
+      manifestCtx
+    ),
+    buildImplicitWebPluginDevMap(opts, hostSet)
+  ])
+
+  let manifestResult = primaryResult
+  let manifestUrlUsed = manifestUrl
+  if (!isStatic && opts.devManifestFallback && opts.isDev) {
+    const needFallback = !primaryResult.ok || getManifestPluginCount(primaryResult) === 0
+    const fallbackRaw = String(opts.devFallbackStaticManifestUrl || '').trim()
+    if (needFallback && fallbackRaw) {
+      const fallbackUrl = resolveStaticManifestUrlForFetch(fallbackRaw, window.location.origin)
+      const fallbackCtx = {
+        manifestUrl: fallbackUrl,
+        credentials: opts.manifestFetchCredentials
+      }
+      const fr = await fetchStaticManifestViaHttp(fallbackCtx)
+      const flen = getManifestPluginCount(fr)
+      if (fr.ok && flen > 0) {
+        manifestResult = fr
+        manifestUrlUsed = fallbackUrl
+        console.info('[wep] dev manifest fallback', { url: fallbackUrl, plugins: flen })
+      }
+    }
+  }
+
+  const devMap = mergeDevMaps(implicit, explicit)
+  startPluginDevSseForMap(devMap, opts.isDev, hostSet, opts.devReloadSsePath)
+
+  const hostKit = buildHostKit(opts)
 
   if (!manifestResult.ok) {
     if (manifestResult.error) {
@@ -228,16 +276,12 @@ export async function bootstrapPlugins(
       const label = isStatic ? 'static manifest' : 'manifest HTTP'
       console.warn(`[wep] ${label}`, manifestResult.status, manifestUrlUsed)
     }
-    if (shouldShowBootstrapSummary(opts)) {
-      console.info('[wep] bootstrap_summary', { ok: false, reason: 'manifest_fetch' })
-    }
+    logBootstrapSummary(showBootstrapSummary, { ok: false, reason: 'manifest_fetch' })
     return
   }
-  const data = manifestResult.data as { hostPluginApiVersion?: string; plugins?: ManifestPluginEntry[] } | null | undefined
+  const data = getManifestBody(manifestResult)
   if (!data) {
-    if (shouldShowBootstrapSummary(opts)) {
-      console.info('[wep] bootstrap_summary', { ok: false, reason: 'manifest_empty_body' })
-    }
+    logBootstrapSummary(showBootstrapSummary, { ok: false, reason: 'manifest_empty_body' })
     return
   }
 
@@ -251,12 +295,10 @@ export async function bootstrapPlugins(
         host: HOST_PLUGIN_API_VERSION,
         manifest: apiVer
       })
-      if (shouldShowBootstrapSummary(opts)) {
-        console.info('[wep] bootstrap_summary', {
-          ok: false,
-          reason: 'manifest_host_api_version_mismatch'
-        })
-      }
+      logBootstrapSummary(showBootstrapSummary, {
+        ok: false,
+        reason: 'manifest_host_api_version_mismatch'
+      })
       return
     }
   }
@@ -365,7 +407,5 @@ export async function bootstrapPlugins(
     }
   }
 
-  if (shouldShowBootstrapSummary(opts)) {
-    console.info('[wep] bootstrap_summary', { ok: true, ...summary })
-  }
+  logBootstrapSummary(showBootstrapSummary, { ok: true, ...summary })
 }

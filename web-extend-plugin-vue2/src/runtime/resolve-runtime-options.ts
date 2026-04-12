@@ -1,12 +1,9 @@
-/**
- * 合并用户、环境与默认配置得到运行时选项。
- */
-
 import {
   defaultWebExtendPluginRuntime,
   webExtendPluginEnvKeys
 } from '../core/public-config-defaults'
 import type { HostCapabilities } from '../core/host-component-registry'
+import type { HostBridgeOptions } from '../host/install-host-bridge'
 import type { PluginRouteSnapshot } from '../host/plugin-route-snapshots'
 import { resolveBundledEnv, resolveBundledIsDev } from './env-resolve'
 import { resolveManifestModeFromInputs, resolveStaticManifestUrlFromInputs } from './manifest-mode'
@@ -15,7 +12,6 @@ import { ensureLeadingPath, normalizeHost } from './path-host-utils'
 const DEF = defaultWebExtendPluginRuntime
 const EK = webExtendPluginEnvKeys
 
-/** 宿主注入、插件只读的依赖载体（如 Vuex、i18n、业务 API）；勿放不可序列化且会随插件变化的闭包 secrets */
 export type OnBeforePluginActivateFn = (ctx: {
   pluginId: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,146 +42,305 @@ export type OnPluginRoutesContributedFn = (ctx: {
   contributedRoutes: ReadonlyArray<PluginRouteSnapshot>
 }) => void | Promise<void>
 
+type ManifestOptionsInput = {
+  baseUrl?: unknown
+  listPath?: unknown
+  source?: unknown
+  staticUrl?: unknown
+  credentials?: RequestCredentials
+  fetch?: unknown
+}
+
+type HostRouteOptionsInput = {
+  enabled?: unknown
+  layout?: unknown
+  mountPath?: unknown
+  parentName?: unknown
+  meta?: unknown
+}
+
+type HostOptionsInput = {
+  bridge?: unknown
+  context?: unknown
+  capabilities?: unknown
+  scriptHosts?: unknown
+  requestPathPrefixes?: unknown
+  route?: HostRouteOptionsInput
+}
+
+type DevManifestFallbackOptionsInput = {
+  enabled?: unknown
+  staticUrl?: unknown
+}
+
+type DevOptionsInput = {
+  enabled?: unknown
+  origin?: unknown
+  pluginIds?: unknown
+  pluginMap?: unknown
+  entryPath?: unknown
+  pingPath?: unknown
+  reloadSsePath?: unknown
+  pingTimeoutMs?: unknown
+  manifestFallback?: DevManifestFallbackOptionsInput
+  bootstrapSummary?: unknown
+}
+
+type HooksOptionsInput = {
+  transformRoutes?: unknown
+  interceptRegisterRoutes?: unknown
+  adaptRouteDeclarations?: unknown
+  onRoutesContributed?: unknown
+  beforeActivate?: unknown
+  afterActivate?: unknown
+  onActivateError?: unknown
+}
+
+export type WebExtendPluginRuntimeOptions = {
+  manifest?: ManifestOptionsInput
+  host?: HostOptionsInput
+  dev?: DevOptionsInput
+  hooks?: HooksOptionsInput
+}
+
+export type ResolvedWebExtendPluginRuntimeOptions = {
+  manifestBase: string
+  manifestListPath: string
+  manifestMode: 'api' | 'static'
+  staticManifestUrl: string
+  devManifestFallback: boolean
+  devFallbackStaticManifestUrl: string
+  manifestFetchCredentials: RequestCredentials
+  isDev: boolean
+  webPluginDevOrigin: string
+  webPluginDevIds: string[]
+  webPluginDevMapJson: string
+  webPluginDevEntryPath: string
+  devPingPath: string
+  devReloadSsePath: string
+  devPingTimeoutMs: number
+  defaultImplicitDevPluginIds: string[]
+  allowedScriptHosts: string[]
+  bridgeAllowedPathPrefixes: string[]
+  bootstrapSummary?: boolean
+  hostLayoutComponent?: unknown
+  pluginMountPath: string
+  pluginHostRouteMeta?: Record<string, unknown>
+  ensurePluginHostRoute: boolean
+  pluginRoutesParentName: string
+  fetchManifest?: (ctx: {
+    manifestUrl: string
+    credentials: RequestCredentials
+  }) => Promise<unknown>
+  transformRoutes?: unknown
+  interceptRegisterRoutes?: unknown
+  adaptRouteDeclarations?: unknown
+  onPluginRoutesContributed?: OnPluginRoutesContributedFn
+  hostContext?: Record<string, unknown>
+  hostCapabilities?: HostCapabilities
+  hostBridge?: HostBridgeOptions
+  onBeforePluginActivate?: OnBeforePluginActivateFn
+  onAfterPluginActivate?: OnAfterPluginActivateFn
+  onPluginActivateError?: OnPluginActivateErrorFn
+}
+
+function asRecord<T extends Record<string, unknown>>(value: unknown): T | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as T) : undefined
+}
+
+function normalizeHostBridge(userVal: unknown): HostBridgeOptions | undefined {
+  const raw = asRecord<Record<string, unknown>>(userVal)
+  if (!raw) {
+    return undefined
+  }
+
+  const normalized: HostBridgeOptions = {}
+  if (raw.modules && typeof raw.modules === 'object' && !Array.isArray(raw.modules)) {
+    normalized.modules = { ...(raw.modules as Record<string, unknown>) }
+  }
+  if (raw.components && typeof raw.components === 'object' && !Array.isArray(raw.components)) {
+    normalized.components = { ...(raw.components as Record<string, unknown>) }
+  }
+
+  return normalized.modules || normalized.components ? normalized : undefined
+}
+
 function resolveManifestCredentials(
   userVal: RequestCredentials | undefined,
   envKey: string,
   fallback: RequestCredentials
 ): RequestCredentials {
   if (userVal !== undefined) {
-    const s = String(userVal)
-    if (s === 'include' || s === 'omit' || s === 'same-origin') {
-      return s as RequestCredentials
+    const normalized = String(userVal)
+    if (normalized === 'include' || normalized === 'omit' || normalized === 'same-origin') {
+      return normalized as RequestCredentials
     }
   }
-  const e = resolveBundledEnv(envKey, '')
-  if (e === 'include' || e === 'omit' || e === 'same-origin') {
-    return e
+
+  const envValue = resolveBundledEnv(envKey, '')
+  if (envValue === 'include' || envValue === 'omit' || envValue === 'same-origin') {
+    return envValue
   }
   return fallback
 }
 
-function resolvePositiveInt(userVal: number | undefined, envKey: string, fallback: number): number {
+function resolvePositiveInt(userVal: unknown, envKey: string, fallback: number): number {
   if (typeof userVal === 'number' && Number.isFinite(userVal) && userVal > 0) {
     return Math.floor(userVal)
   }
   const raw = resolveBundledEnv(envKey, '')
-  const n = raw ? parseInt(raw, 10) : NaN
-  if (Number.isFinite(n) && n > 0) {
-    return n
-  }
-  return fallback
+  const parsed = raw ? parseInt(raw, 10) : NaN
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-/** 合并用户、环境变量与 `defaultWebExtendPluginRuntime`，得到完整运行时选项（宿主可只传需要覆盖的字段）。 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function resolveRuntimeOptions(user: Record<string, any> = {}) {
+function normalizeStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map(String).map((item) => item.trim()).filter(Boolean)
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function resolveAllowedScriptHosts(value: unknown): string[] {
+  const raw = normalizeStringList(value)
+  return raw.length > 0 ? raw.map(normalizeHost).filter(Boolean) : []
+}
+
+function resolvePathPrefixes(value: unknown): string[] {
+  const raw = normalizeStringList(value)
+  return raw.length > 0 ? raw.map((item) => ensureLeadingPath(item)).filter(Boolean) : []
+}
+
+function resolveBoolean(value: unknown): boolean | undefined {
+  if (value === true || value === false) {
+    return value
+  }
+  return undefined
+}
+
+function resolveManifestInput(user: WebExtendPluginRuntimeOptions): ManifestOptionsInput {
+  return asRecord<ManifestOptionsInput>(user.manifest) || {}
+}
+
+function resolveHostInput(user: WebExtendPluginRuntimeOptions): HostOptionsInput {
+  return asRecord<HostOptionsInput>(user.host) || {}
+}
+
+function resolveDevInput(user: WebExtendPluginRuntimeOptions): DevOptionsInput {
+  return asRecord<DevOptionsInput>(user.dev) || {}
+}
+
+function resolveHooksInput(user: WebExtendPluginRuntimeOptions): HooksOptionsInput {
+  return asRecord<HooksOptionsInput>(user.hooks) || {}
+}
+
+function resolveDevPluginIds(dev: DevOptionsInput): string[] {
+  const explicit = normalizeStringList(dev.pluginIds)
+  if (explicit.length > 0) {
+    return explicit
+  }
+  const fromEnv = normalizeStringList(resolveBundledEnv(EK.webPluginDevIds, ''))
+  if (fromEnv.length > 0) {
+    return fromEnv
+  }
+  const implicit = normalizeStringList(resolveBundledEnv(EK.implicitDevIds, ''))
+  return implicit.length > 0 ? implicit : [...DEF.defaultImplicitDevPluginIds]
+}
+
+function resolveDevManifestFallback(dev: DevOptionsInput, manifestMode: 'api' | 'static', isDev: boolean): boolean {
+  if (manifestMode === 'static') {
+    return false
+  }
+  const direct = resolveBoolean(dev.manifestFallback && (dev.manifestFallback as DevManifestFallbackOptionsInput).enabled)
+  if (direct !== undefined) {
+    return direct
+  }
+  const envFlag = resolveBundledEnv(EK.devManifestFallback, '')
+  if (envFlag === '0' || envFlag === 'false') {
+    return false
+  }
+  if (envFlag === '1' || envFlag === 'true') {
+    return true
+  }
+  return isDev
+}
+
+export function resolveRuntimeOptions(
+  user: WebExtendPluginRuntimeOptions = {}
+): ResolvedWebExtendPluginRuntimeOptions {
+  const manifest = resolveManifestInput(user)
+  const host = resolveHostInput(user)
+  const hostRoute = asRecord<HostRouteOptionsInput>(host.route) || {}
+  const dev = resolveDevInput(user)
+  const devFallback = asRecord<DevManifestFallbackOptionsInput>(dev.manifestFallback) || {}
+  const hooks = resolveHooksInput(user)
+  const normalizedHostBridge = normalizeHostBridge(host.bridge)
+
   const manifestBaseRaw =
-    user.manifestBase !== undefined && user.manifestBase !== ''
-      ? String(user.manifestBase)
+    manifest.baseUrl !== undefined && String(manifest.baseUrl).trim() !== ''
+      ? String(manifest.baseUrl)
       : resolveBundledEnv(EK.manifestBase, DEF.manifestBase) || DEF.manifestBase
 
   const manifestListPath = ensureLeadingPath(
-    user.manifestListPath !== undefined && user.manifestListPath !== ''
-      ? user.manifestListPath
+    manifest.listPath !== undefined && String(manifest.listPath).trim() !== ''
+      ? manifest.listPath
       : resolveBundledEnv(EK.manifestListPath, DEF.manifestListPath)
   )
 
-  const defaultImplicitDevPluginIds = Array.isArray(user.defaultImplicitDevPluginIds)
-    ? user.defaultImplicitDevPluginIds.map(String).filter(Boolean)
-    : (() => {
-        const e = resolveBundledEnv(EK.implicitDevIds, '')
-        if (e) {
-          return e
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        }
-        return [...DEF.defaultImplicitDevPluginIds]
-      })()
-
-  const allowedScriptHosts =
-    Array.isArray(user.allowedScriptHosts) && user.allowedScriptHosts.length > 0
-      ? user.allowedScriptHosts.map((h: string) => normalizeHost(String(h))).filter(Boolean)
-      : (() => {
-          const e = resolveBundledEnv(EK.allowedScriptHosts, '')
-          if (e) {
-            return e
-              .split(',')
-              .map((s: string) => normalizeHost(s.trim()))
-              .filter(Boolean)
-          }
-          return [...DEF.allowedScriptHosts]
-        })()
-
-  const bridgeAllowedPathPrefixes =
-    Array.isArray(user.bridgeAllowedPathPrefixes) && user.bridgeAllowedPathPrefixes.length > 0
-      ? user.bridgeAllowedPathPrefixes.map((p: string) => ensureLeadingPath(p)).filter(Boolean)
-      : (() => {
-          const e = resolveBundledEnv(EK.bridgePrefixes, '')
-          if (e) {
-            return e
-              .split(',')
-              .map((s: string) => ensureLeadingPath(s.trim()))
-              .filter(Boolean)
-          }
-          return [...DEF.bridgeAllowedPathPrefixes]
-        })()
-
-  const manifestMode = resolveManifestModeFromInputs(user.manifestMode)
-  const staticManifestUrl = resolveStaticManifestUrlFromInputs(user.staticManifestUrl)
-
-  const isDevResolved = user.isDev !== undefined ? user.isDev : resolveBundledIsDev()
-
-  const devFallbackStaticManifestUrl = (() => {
-    if (user.devFallbackStaticManifestUrl !== undefined && String(user.devFallbackStaticManifestUrl).trim() !== '') {
-      return String(user.devFallbackStaticManifestUrl).trim()
+  const allowedScriptHosts = (() => {
+    const explicit = resolveAllowedScriptHosts(host.scriptHosts)
+    if (explicit.length > 0) {
+      return explicit
     }
-    const e = resolveBundledEnv(EK.devFallbackManifestUrl, '')
-    if (e) {
-      return e.trim()
-    }
-    return String(DEF.devFallbackStaticManifestUrl).trim()
+    const fromEnv = resolveAllowedScriptHosts(resolveBundledEnv(EK.allowedScriptHosts, ''))
+    return fromEnv.length > 0 ? fromEnv : [...DEF.allowedScriptHosts]
   })()
 
-  const hostLayoutComponent = user.hostLayoutComponent
+  const bridgeAllowedPathPrefixes = (() => {
+    const explicit = resolvePathPrefixes(host.requestPathPrefixes)
+    if (explicit.length > 0) {
+      return explicit
+    }
+    const fromEnv = resolvePathPrefixes(resolveBundledEnv(EK.bridgePrefixes, ''))
+    return fromEnv.length > 0 ? fromEnv : [...DEF.bridgeAllowedPathPrefixes]
+  })()
+
+  const manifestMode = resolveManifestModeFromInputs(manifest.source)
+  const staticManifestUrl = resolveStaticManifestUrlFromInputs(manifest.staticUrl)
+  const isDev = resolveBoolean(dev.enabled) !== undefined ? Boolean(dev.enabled) : resolveBundledIsDev()
+
+  const devFallbackStaticManifestUrl = (() => {
+    if (devFallback.staticUrl !== undefined && String(devFallback.staticUrl).trim() !== '') {
+      return String(devFallback.staticUrl).trim()
+    }
+    const envValue = resolveBundledEnv(EK.devFallbackManifestUrl, '')
+    return envValue ? envValue.trim() : String(DEF.devFallbackStaticManifestUrl).trim()
+  })()
 
   const pluginRoutesParentName =
-    user.pluginRoutesParentName !== undefined && String(user.pluginRoutesParentName).trim() !== ''
-      ? String(user.pluginRoutesParentName).trim()
+    hostRoute.parentName !== undefined && String(hostRoute.parentName).trim() !== ''
+      ? String(hostRoute.parentName).trim()
       : ''
 
   const pluginMountRaw =
-    user.pluginMountPath !== undefined && String(user.pluginMountPath).trim() !== ''
-      ? String(user.pluginMountPath).trim()
+    hostRoute.mountPath !== undefined && String(hostRoute.mountPath).trim() !== ''
+      ? String(hostRoute.mountPath).trim()
       : String(resolveBundledEnv(EK.mountPath, '') || DEF.pluginMountPath).trim()
 
   const pluginMountPath = ensureLeadingPath(pluginMountRaw || DEF.pluginMountPath)
+  const pluginHostRouteMeta = asRecord<Record<string, unknown>>(hostRoute.meta)
+  const ensurePluginHostRoute = resolveBoolean(hostRoute.enabled) === true
 
-  const pluginHostRouteMeta =
-    user.pluginHostRouteMeta !== undefined && user.pluginHostRouteMeta !== null
-      ? user.pluginHostRouteMeta
-      : undefined
-
-  const ensurePluginHostRoute = user.ensurePluginHostRoute === true
-
-  const devManifestFallback = (() => {
-    if (manifestMode === 'static') {
-      return false
+  const webPluginDevMapJson = (() => {
+    if (dev.pluginMap && typeof dev.pluginMap === 'object' && !Array.isArray(dev.pluginMap)) {
+      return JSON.stringify(dev.pluginMap)
     }
-    if (user.devManifestFallback === false) {
-      return false
-    }
-    if (user.devManifestFallback === true) {
-      return true
-    }
-    const envFlag = resolveBundledEnv(EK.devManifestFallback, '')
-    if (envFlag === '0' || envFlag === 'false') {
-      return false
-    }
-    if (envFlag === '1' || envFlag === 'true') {
-      return true
-    }
-    return !!isDevResolved
+    return dev.pluginMap !== undefined ? String(dev.pluginMap || '') : resolveBundledEnv(EK.webPluginDevMap, '')
   })()
 
   return {
@@ -193,80 +348,65 @@ export function resolveRuntimeOptions(user: Record<string, any> = {}) {
     manifestListPath,
     manifestMode,
     staticManifestUrl,
-    devManifestFallback,
+    devManifestFallback: resolveDevManifestFallback(dev, manifestMode, isDev),
     devFallbackStaticManifestUrl,
     manifestFetchCredentials: resolveManifestCredentials(
-      user.manifestFetchCredentials,
+      manifest.credentials,
       EK.manifestCredentials,
       DEF.manifestFetchCredentials
     ),
-    isDev: isDevResolved,
+    isDev,
     webPluginDevOrigin:
-      user.webPluginDevOrigin !== undefined
-        ? user.webPluginDevOrigin
-        : resolveBundledEnv(EK.webPluginDevOrigin, ''),
-    webPluginDevIds:
-      user.webPluginDevIds !== undefined ? user.webPluginDevIds : resolveBundledEnv(EK.webPluginDevIds, ''),
-    webPluginDevMapJson:
-      user.webPluginDevMapJson !== undefined
-        ? user.webPluginDevMapJson
-        : resolveBundledEnv(EK.webPluginDevMap, ''),
+      dev.origin !== undefined ? String(dev.origin || '').trim() : resolveBundledEnv(EK.webPluginDevOrigin, ''),
+    webPluginDevIds: resolveDevPluginIds(dev),
+    webPluginDevMapJson,
     webPluginDevEntryPath: ensureLeadingPath(
-      user.webPluginDevEntryPath !== undefined && user.webPluginDevEntryPath !== ''
-        ? user.webPluginDevEntryPath
+      dev.entryPath !== undefined && String(dev.entryPath).trim() !== ''
+        ? String(dev.entryPath)
         : resolveBundledEnv(EK.devEntry, DEF.webPluginDevEntryPath)
     ),
     devPingPath: ensureLeadingPath(
-      user.devPingPath !== undefined && user.devPingPath !== ''
-        ? user.devPingPath
+      dev.pingPath !== undefined && String(dev.pingPath).trim() !== ''
+        ? String(dev.pingPath)
         : resolveBundledEnv(EK.devPing, DEF.devPingPath)
     ),
     devReloadSsePath: ensureLeadingPath(
-      user.devReloadSsePath !== undefined && user.devReloadSsePath !== ''
-        ? user.devReloadSsePath
+      dev.reloadSsePath !== undefined && String(dev.reloadSsePath).trim() !== ''
+        ? String(dev.reloadSsePath)
         : resolveBundledEnv(EK.devSse, DEF.devReloadSsePath)
     ),
-    devPingTimeoutMs: resolvePositiveInt(user.devPingTimeoutMs, EK.devPingTimeout, DEF.devPingTimeoutMs),
-    defaultImplicitDevPluginIds,
+    devPingTimeoutMs: resolvePositiveInt(dev.pingTimeoutMs, EK.devPingTimeout, DEF.devPingTimeoutMs),
+    defaultImplicitDevPluginIds: [...DEF.defaultImplicitDevPluginIds],
     allowedScriptHosts,
     bridgeAllowedPathPrefixes,
-    bootstrapSummary: user.bootstrapSummary,
-    hostLayoutComponent,
+    bootstrapSummary: resolveBoolean(dev.bootstrapSummary),
+    hostLayoutComponent: hostRoute.layout,
     pluginMountPath,
     pluginHostRouteMeta,
     ensurePluginHostRoute,
     pluginRoutesParentName,
-    ...(typeof user.fetchManifest === 'function' ? { fetchManifest: user.fetchManifest } : {}),
-    ...(typeof user.transformRoutes === 'function' ? { transformRoutes: user.transformRoutes } : {}),
-    ...(typeof user.interceptRegisterRoutes === 'function'
-      ? { interceptRegisterRoutes: user.interceptRegisterRoutes }
+    ...(typeof manifest.fetch === 'function' ? { fetchManifest: manifest.fetch } : {}),
+    ...(typeof hooks.transformRoutes === 'function' ? { transformRoutes: hooks.transformRoutes } : {}),
+    ...(typeof hooks.interceptRegisterRoutes === 'function'
+      ? { interceptRegisterRoutes: hooks.interceptRegisterRoutes }
       : {}),
-    ...(typeof user.adaptRouteDeclarations === 'function'
-      ? { adaptRouteDeclarations: user.adaptRouteDeclarations }
+    ...(typeof hooks.adaptRouteDeclarations === 'function'
+      ? { adaptRouteDeclarations: hooks.adaptRouteDeclarations }
       : {}),
-    ...(typeof user.onPluginRoutesContributed === 'function'
-      ? { onPluginRoutesContributed: user.onPluginRoutesContributed as OnPluginRoutesContributedFn }
+    ...(typeof hooks.onRoutesContributed === 'function'
+      ? { onPluginRoutesContributed: hooks.onRoutesContributed as OnPluginRoutesContributedFn }
       : {}),
-    ...(user.hostContext !== undefined &&
-    user.hostContext !== null &&
-    typeof user.hostContext === 'object' &&
-    !Array.isArray(user.hostContext)
-      ? { hostContext: user.hostContext as Record<string, unknown> }
+    ...(asRecord<Record<string, unknown>>(host.context) ? { hostContext: asRecord<Record<string, unknown>>(host.context)! } : {}),
+    ...(asRecord<HostCapabilities>(host.capabilities) ? { hostCapabilities: asRecord<HostCapabilities>(host.capabilities)! } : {}),
+    ...(normalizedHostBridge ? { hostBridge: normalizedHostBridge } : {}),
+    ...(typeof hooks.beforeActivate === 'function'
+      ? { onBeforePluginActivate: hooks.beforeActivate as OnBeforePluginActivateFn }
       : {}),
-    ...(user.hostCapabilities !== undefined &&
-    user.hostCapabilities !== null &&
-    typeof user.hostCapabilities === 'object' &&
-    !Array.isArray(user.hostCapabilities)
-      ? { hostCapabilities: user.hostCapabilities as HostCapabilities }
+    ...(typeof hooks.afterActivate === 'function'
+      ? { onAfterPluginActivate: hooks.afterActivate as OnAfterPluginActivateFn }
       : {}),
-    ...(typeof user.onBeforePluginActivate === 'function'
-      ? { onBeforePluginActivate: user.onBeforePluginActivate as OnBeforePluginActivateFn }
-      : {}),
-    ...(typeof user.onAfterPluginActivate === 'function'
-      ? { onAfterPluginActivate: user.onAfterPluginActivate as OnAfterPluginActivateFn }
-      : {}),
-    ...(typeof user.onPluginActivateError === 'function'
-      ? { onPluginActivateError: user.onPluginActivateError as OnPluginActivateErrorFn }
+    ...(typeof hooks.onActivateError === 'function'
+      ? { onPluginActivateError: hooks.onActivateError as OnPluginActivateErrorFn }
       : {})
   }
 }

@@ -87,6 +87,14 @@ export type HostContext = Readonly<
   }
 >
 
+/** Host bridge config exposed to plugins. */
+export type HostBridgeOptions = {
+  /** Host modules exposed on `this.$host`. */
+  modules?: Record<string, unknown>
+  /** Host components auto-registered as global aliases. */
+  components?: Record<string, unknown | { component: unknown }>
+}
+
 export type OnBeforePluginActivateFn = (ctx: {
   pluginId: string
   router: unknown
@@ -114,13 +122,21 @@ export type OnPluginRoutesContributedFn = (ctx: {
   contributedRoutes: ReadonlyArray<PluginRouteSnapshot>
 }) => void | Promise<void>
 
+/** Host-side injections consumed by `createHostApi()`. */
 export type HostKitOptions = {
+  /** Backend path prefixes allowed by the request bridge. */
   bridgeAllowedPathPrefixes?: string[]
+  /** Parent route name used when mounting plugin child routes. */
   pluginRoutesParentName?: string
+  /** Route transform hook before registration. */
   transformRoutes?: TransformRoutesFn
+  /** Intercepts the default route registration flow. */
   interceptRegisterRoutes?: InterceptRegisterRoutesFn
+  /** Converts declaration-style routes into Vue Router configs. */
   adaptRouteDeclarations?: AdaptRouteDeclarationsFn
+  /** Called after plugin routes are contributed. */
   onPluginRoutesContributed?: OnPluginRoutesContributedFn
+  /** Readonly host context passed to plugins. */
   hostContext?: HostContext
 }
 
@@ -142,37 +158,129 @@ export type WebExtendPluginManifestRecord = Readonly<
   }
 >
 
-export type WebExtendPluginRuntimeOptions = HostKitOptions &
-  Record<string, unknown> & {
-    manifestBase?: string
-    manifestListPath?: string
-    manifestMode?: 'api' | 'static'
-    staticManifestUrl?: string
-    devManifestFallback?: boolean
-    devFallbackStaticManifestUrl?: string
-    manifestFetchCredentials?: RequestCredentials
-    hostLayoutComponent?: unknown
-    pluginMountPath?: string
-    pluginHostRouteMeta?: Record<string, unknown>
-    ensurePluginHostRoute?: boolean
-    isDev?: boolean
-    webPluginDevOrigin?: string
-    webPluginDevIds?: string
-    webPluginDevMapJson?: string
-    webPluginDevEntryPath?: string
-    devPingPath?: string
-    devReloadSsePath?: string
-    devPingTimeoutMs?: number
-    defaultImplicitDevPluginIds?: string[]
-    allowedScriptHosts?: string[]
-    bootstrapSummary?: boolean
-    fetchManifest?: ManifestFetchFn
-    hostContext?: Record<string, unknown>
-    hostCapabilities?: HostCapabilities
-    onBeforePluginActivate?: OnBeforePluginActivateFn
-    onAfterPluginActivate?: OnAfterPluginActivateFn
-    onPluginActivateError?: OnPluginActivateErrorFn
-  }
+export type RuntimeManifestOptions = {
+  /** Manifest source mode. */
+  source?: 'api' | 'static'
+  /** API-mode manifest service base path. */
+  baseUrl?: string
+  /** API-mode manifest path. */
+  listPath?: string
+  /** Manifest URL in static mode. */
+  staticUrl?: string
+  /** Fetch credentials used for manifest loading. */
+  credentials?: RequestCredentials
+  /** Optional manifest fetch override. */
+  fetch?: ManifestFetchFn
+}
+
+export type RuntimeHostRouteOptions = {
+  /** Enables auto-registration of the plugin host route. */
+  enabled?: boolean
+  /** Host layout component used by the plugin shell route. */
+  layout?: unknown
+  /** Shared mount path for plugin pages. */
+  mountPath?: string
+  /** Parent route name used for plugin child routes. */
+  parentName?: string
+  /** Meta assigned to the auto-created plugin host route. */
+  meta?: Record<string, unknown>
+}
+
+export type RuntimeHostOptions = HostKitOptions & {
+  /** Host modules/components auto-installed into the Vue runtime. */
+  bridge?: HostBridgeOptions
+  /** Host context passed to plugins. */
+  context?: Record<string, unknown>
+  /** Host capability metadata passed to plugins. */
+  capabilities?: HostCapabilities
+  /** Allowed hosts for remote plugin scripts. */
+  scriptHosts?: string[]
+  /** Allowed backend path prefixes for the request bridge. */
+  requestPathPrefixes?: string[]
+  /** Plugin host route configuration. */
+  route?: RuntimeHostRouteOptions
+}
+
+export type RuntimeDevManifestFallbackOptions = {
+  /** Enables manifest fallback in development mode. */
+  enabled?: boolean
+  /** Static manifest URL used by the development fallback. */
+  staticUrl?: string
+}
+
+export type RuntimeDevOptions = {
+  /** Explicitly marks runtime as development mode. */
+  enabled?: boolean
+  /** Local plugin dev server origin. */
+  origin?: string
+  /** Plugin ids using the local dev entry. */
+  pluginIds?: string[] | string
+  /** Explicit plugin id -> dev entry mapping. */
+  pluginMap?: Record<string, string> | string
+  /** Entry path used by implicit dev mode. */
+  entryPath?: string
+  /** Ping path used to detect the dev server. */
+  pingPath?: string
+  /** SSE path used for dev reload notifications. */
+  reloadSsePath?: string
+  /** Ping timeout in milliseconds. */
+  pingTimeoutMs?: number
+  /** Development manifest fallback config. */
+  manifestFallback?: RuntimeDevManifestFallbackOptions
+  /** Whether to print bootstrap summary logs. */
+  bootstrapSummary?: boolean
+}
+
+export type RuntimeHooksOptions = {
+  /** Route transform hook before registration. */
+  transformRoutes?: TransformRoutesFn
+  /** Intercepts the default route registration flow. */
+  interceptRegisterRoutes?: InterceptRegisterRoutesFn
+  /** Converts declaration-style routes into Vue Router configs. */
+  adaptRouteDeclarations?: AdaptRouteDeclarationsFn
+  /** Called after plugin routes are contributed. */
+  onRoutesContributed?: OnPluginRoutesContributedFn
+  /** Hook called before plugin activation. */
+  beforeActivate?: OnBeforePluginActivateFn
+  /** Hook called after plugin activation. */
+  afterActivate?: OnAfterPluginActivateFn
+  /** Hook called when plugin activation fails. */
+  onActivateError?: OnPluginActivateErrorFn
+}
+
+export type WebExtendPluginRuntimeOptions = {
+  manifest?: RuntimeManifestOptions
+  host?: RuntimeHostOptions
+  dev?: RuntimeDevOptions
+  hooks?: RuntimeHooksOptions
+}
+
+export type ResolvedWebExtendPluginRuntimeOptions = Record<string, unknown> & {
+  manifestBase: string
+  manifestListPath: string
+  manifestMode: 'api' | 'static'
+  staticManifestUrl: string
+  devManifestFallback: boolean
+  devFallbackStaticManifestUrl: string
+  manifestFetchCredentials: RequestCredentials
+  isDev: boolean
+  webPluginDevOrigin: string
+  webPluginDevIds: string[]
+  webPluginDevMapJson: string
+  webPluginDevEntryPath: string
+  devPingPath: string
+  devReloadSsePath: string
+  devPingTimeoutMs: number
+  defaultImplicitDevPluginIds: string[]
+  allowedScriptHosts: string[]
+  bridgeAllowedPathPrefixes: string[]
+  bootstrapSummary?: boolean
+  hostLayoutComponent?: unknown
+  pluginMountPath: string
+  pluginHostRouteMeta?: Record<string, unknown>
+  ensurePluginHostRoute: boolean
+  pluginRoutesParentName: string
+}
 
 export interface HostApi {
   readonly hostPluginApiVersion: string
@@ -207,13 +315,21 @@ export type ManifestFetchResult = {
 
 export type ManifestFetchFn = (ctx: ManifestFetchContext) => Promise<ManifestFetchResult>
 
+/** Manifest fetch cache options. */
 export type ManifestFetchCacheOptions = {
+  /** Cache lifetime in milliseconds. */
   ttlMs?: number
+  /** Cache storage backend. */
   storage?: 'memory' | 'session' | 'local'
+  /** Key prefix when using Web Storage. */
   storageKeyPrefix?: string
+  /** Custom cache key builder. */
   cacheKey?: (ctx: ManifestFetchContext) => string
+  /** Controls which results may be cached. */
   shouldCache?: (result: ManifestFetchResult) => boolean
+  /** Max number of in-memory cache entries. */
   maxEntries?: number
+  /** Custom clock, usually for tests. */
   now?: () => number
 }
 
@@ -233,7 +349,7 @@ export function bootstrapPlugins(
   runtimeOptions?: WebExtendPluginRuntimeOptions
 ): Promise<void>
 
-export function resolveRuntimeOptions(user?: WebExtendPluginRuntimeOptions): WebExtendPluginRuntimeOptions
+export function resolveRuntimeOptions(user?: WebExtendPluginRuntimeOptions): ResolvedWebExtendPluginRuntimeOptions
 
 export function ensurePluginHostRoute(router: unknown, opts: WebExtendPluginRuntimeOptions): void
 export function getActivatedPluginIds(): string[]
@@ -274,12 +390,17 @@ export function installWebExtendPluginVue2(
   options?: WebExtendPluginRuntimeOptions
 ): Promise<void>
 
+export function installHostBridge(
+  Vue: unknown,
+  options?: HostBridgeOptions
+): Readonly<Record<string, unknown>>
+
 export const ExtensionPoint: unknown
 
 export function createVueCliAxiosInstallOptions(
   deps: { request: (config: Record<string, unknown>) => Promise<unknown> },
-  extra?: Record<string, unknown>
-): Record<string, unknown>
+  extra?: WebExtendPluginRuntimeOptions
+): WebExtendPluginRuntimeOptions
 
 export function composeManifestFetch(
   inner: ManifestFetchFn,
