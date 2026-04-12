@@ -1,0 +1,41 @@
+web-extend-plugin-vue2/src/host/plugin-bootstrap-router.ts
+  120ef143e4596837 5-6,8-11,14-16
+plugin-example-case/web-lugins/com.example.frontend.demo/src/plugin-entry.js
+  120ef143e4596837 28-31,33,35,37,39
+web-extend-plugin-vue2/src/runtime/bootstrap-plugins.ts
+  120ef143e4596837 6,133
+web-extend-plugin-vue2/index.d.ts
+  120ef143e4596837 220
+web-extend-plugin-vue2/src/package-exports.ts
+  120ef143e4596837 5,36
+web-extend-plugin-vue2/src/host/dispose-web-plugin.ts
+  120ef143e4596837 6-7,18
+web-extend-plugin-vue2/src/runtime/ensure-plugin-host-route.ts
+  120ef143e4596837 2-3,37
+web-extend-plugin-vue2/src/host/plugin-route-registry.ts
+  120ef143e4596837 1,4-5,22,25-26,30,32,35-36,43-46,48-50,53-54,60,63,66,69,72-73,75,77
+web-extend-plugin-vue2/src/runtime/resolve-runtime-options.ts
+  120ef143e4596837 152-155,169
+web-extend-plugin-vue2/README.md
+  120ef143e4596837 86-88,91,95-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "e7eb43f1cb58b23cb4017d990397979097c6bb8e",
+  "prompts": {
+    "120ef143e4596837": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "581317d5-b08b-4bb4-bf37-3425a6dc2fb5",
+        "model": "default"
+      },
+      "human_author": "xtmplus",
+      "messages": [],
+      "total_additions": 486,
+      "total_deletions": 319,
+      "accepted_lines": 149,
+      "overriden_lines": 42
+    }
+  }
+}
